@@ -1,0 +1,176 @@
+# OMNI Model Configuration
+# Model assignments and routing configuration
+# This file can be edited at runtime to change model assignments
+
+# =============================================================================
+# Model Providers
+# =============================================================================
+providers:
+  ollama:
+    name: "Ollama"
+    base_url: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+    default_timeout: 120
+    embedding_endpoint: "/api/embeddings"
+    chat_endpoint: "/api/chat"
+    
+# =============================================================================
+# Available Models Registry
+# This section defines all models available for assignment
+# Dashboard can add/remove models from this list
+# =============================================================================
+available_models:
+  # General purpose models
+  qwen3:14b:
+    name: "Qwen3 14B"
+    provider: ollama
+    parameter_size: "14.8B"
+    capabilities:
+      - reasoning
+      - orchestration
+      - general
+    max_tokens: 32768
+    
+  gemma3:12b:
+    name: "Gemma 3 12B"
+    provider: ollama
+    parameter_size: "12.2B"
+    capabilities:
+      - reasoning
+      - writing
+      - analysis
+    max_tokens: 128000
+    
+  llama3.1:8b:
+    name: "Llama 3.1 8B"
+    provider: ollama
+    parameter_size: "8.0B"
+    capabilities:
+      - general
+      - social
+      - analysis
+    max_tokens: 128000
+    
+  # Coding models
+  qwen2.5-coder:14b:
+    name: "Qwen2.5 Coder 14B"
+    provider: ollama
+    parameter_size: "14.8B"
+    capabilities:
+      - coding
+      - code_review
+    max_tokens: 32768
+    
+  deepseek-coder-v2:16b:
+    name: "DeepSeek Coder V2 16B"
+    provider: ollama
+    parameter_size: "15.7B"
+    capabilities:
+      - coding
+      - refactoring
+      - architecture
+    max_tokens: 128000
+    
+  # Validation models (small, fast)
+  phi3.5:3.8b:
+    name: "Phi 3.5 3.8B"
+    provider: ollama
+    parameter_size: "3.8B"
+    capabilities:
+      - validation
+      - formatting
+    max_tokens: 128000
+    
+  # Embedding models
+  nomic-embed-text:
+    name: "Nomic Embed Text"
+    provider: ollama
+    parameter_size: "137M"
+    capabilities:
+      - embedding
+    embedding_dimension: 768
+
+# =============================================================================
+# Model Assignments
+# These can be changed at runtime via the dashboard
+# =============================================================================
+assignments:
+  # Layer 1: Orchestrator
+  orchestrator:
+    query_analyzer: qwen3:14b
+    decision: qwen3:14b
+    response_collator: gemma3:12b
+    
+  # Layer 2: Departments
+  departments:
+    github:
+      manager: qwen3:14b
+      agents:
+        researcher: qwen2.5-coder:14b
+        code_analyst: deepseek-coder-v2:16b
+        gist_creator: qwen2.5-coder:14b
+        
+    research:
+      manager: qwen3:14b
+      agents:
+        web_researcher: gemma3:12b
+        content_analyzer: gemma3:12b
+        fact_checker: llama3.1:8b
+        
+    social:
+      manager: qwen3:14b
+      agents:
+        content_creator: llama3.1:8b
+        engagement_optimizer: llama3.1:8b
+        analytics_monitor: gemma3:12b
+        
+    analysis:
+      manager: qwen3:14b
+      agents:
+        data_analyst: gemma3:12b
+        insight_generator: gemma3:12b
+        report_creator: llama3.1:8b
+        
+    writing:
+      manager: qwen3:14b
+      agents:
+        editorial: gemma3:12b
+        longform: gemma3:12b
+        social_media: llama3.1:8b
+        
+    coding:
+      manager: qwen3:14b
+      agents:
+        generator: qwen2.5-coder:14b
+        refactorer: deepseek-coder-v2:16b
+        architect: qwen3:14b
+        
+  # Layer 3: Validation
+  validators:
+    default: phi3.5:3.8b
+    input_validator: phi3.5:3.8b
+    output_validator: phi3.5:3.8b
+    response_validator: phi3.5:3.8b
+
+# =============================================================================
+# Model Parameters
+# =============================================================================
+parameters:
+  default:
+    temperature: 0.7
+    max_tokens: 4096
+    top_p: 0.9
+    
+  validation:
+    temperature: 0.1  # Low temperature for deterministic validation
+    max_tokens: 2048
+    top_p: 0.5
+    
+  coding:
+    temperature: 0.3  # Lower for code generation
+    max_tokens: 8192
+    top_p: 0.9
+    
+  creative:
+    temperature: 0.8
+    max_tokens: 4096
+    top_p: 0.95

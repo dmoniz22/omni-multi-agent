@@ -1,0 +1,63 @@
+# OMNI Department Configuration
+# Department metadata and settings
+
+departments:
+  - name: github
+    display_name: "GitHub Department"
+    description: "Handles GitHub operations including repository analysis, code review, and gist management"
+    enabled: true
+    capabilities:
+      - repository_search
+      - code_analysis
+      - gist_creation
+      - issue_tracking
+    
+  - name: research
+    display_name: "Research Department"
+    description: "Conducts web research, content analysis, and fact-checking"
+    enabled: true
+    capabilities:
+      - web_research
+      - content_analysis
+      - fact_checking
+      - source_citation
+    
+  - name: social
+    display_name: "Social Media Department"
+    description: "Creates and optimizes social media content across platforms"
+    enabled: true
+    capabilities:
+      - content_creation
+      - engagement_optimization
+      - platform_formatting
+      - hashtag_research
+    
+  - name: analysis
+    display_name: "Analysis Department"
+    description: "Performs data analysis, pattern recognition, and generates insights"
+    enabled: true
+    capabilities:
+      - data_analysis
+      - statistical_analysis
+      - trend_identification
+      - report_generation
+    
+  - name: writing
+    display_name: "Writing Department"
+    description: "Produces various written content including articles, documentation, and social posts"
+    enabled: true
+    capabilities:
+      - long_form_writing
+      - editing
+      - technical_writing
+      - social_media_writing
+    
+  - name: coding
+    display_name: "Coding Department"
+    description: "Handles code generation, refactoring, and architecture decisions"
+    enabled: true
+    capabilities:
+      - code_generation
+      - code_refactoring
+      - architecture_design
+      - code_review

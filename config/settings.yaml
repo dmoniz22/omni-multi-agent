@@ -1,0 +1,148 @@
+# OMNI System Settings
+# Global configuration for the OMNI multi-agent orchestration system
+
+system:
+  name: "OMNI"
+  version: "0.1.0"
+  description: "Multi-agent orchestration system with LangGraph, CrewAI, and PydanticAI"
+  
+  # Environment settings
+  environment: "${OMNI_ENV:-development}"
+  debug: "${OMNI_DEBUG:-true}"
+  
+  # Logging configuration
+  logging:
+    level: "${LOG_LEVEL:-INFO}"
+    format: "${LOG_FORMAT:-json}"
+    component_levels:
+      omni.core: INFO
+      omni.orchestrator: DEBUG
+      omni.crews: INFO
+      omni.validators: INFO
+      omni.skills: INFO
+      omni.db: WARNING
+
+# =============================================================================
+# Orchestrator Configuration
+# =============================================================================
+orchestrator:
+  # Step limits and timeouts
+  max_steps: 20
+  timeout_seconds: 300
+  
+  # Retry configuration
+  max_retries: 3
+  retry_delay_seconds: 1
+  
+  # Human-in-the-loop settings
+  hitl:
+    enabled: true
+    require_confirmation_for:
+      - destructive_operations
+      - external_api_calls
+      - file_writes
+    
+  # Circuit breaker configuration
+  circuit_breaker:
+    failure_threshold: 3
+    recovery_timeout_seconds: 60
+
+# =============================================================================
+# Department Configuration
+# =============================================================================
+departments:
+  auto_discover: true
+  discovery_path: "src/omni/crews"
+  
+  # Default process settings
+  defaults:
+    process_timeout_seconds: 120
+    max_iterations: 5
+    verbose: true
+
+# =============================================================================
+# Skill Configuration
+# =============================================================================
+skills:
+  auto_discover: true
+  discovery_path: "src/omni/skills"
+  
+  # Skill-specific settings
+  browser:
+    timeout_seconds: 30
+    rate_limit_rpm: 60
+    allowed_schemes:
+      - https
+      - http
+    blocked_domains: []
+    
+  github:
+    timeout_seconds: 30
+    rate_limit_rpm: 60
+    require_confirmation_for_write: true
+    
+  search:
+    provider: "duckduckgo"  # Options: duckduckgo, searxng
+    searxng_url: ""  # Required if using searxng
+    max_results: 10
+    
+  file:
+    workspace_root: "./workspace"
+    max_file_size_mb: 10
+    allowed_extensions:
+      - .txt
+      - .md
+      - .py
+      - .json
+      - .yaml
+      - .yml
+      - .csv
+    
+  calculator:
+    max_expression_length: 1000
+    max_iterations: 100
+
+# =============================================================================
+# Memory Configuration
+# =============================================================================
+memory:
+  # Short-term memory (checkpoints)
+  short_term:
+    enabled: true
+    retention_count: 100
+    
+  # Long-term memory (pgvector)
+  long_term:
+    enabled: true
+    embedding_model: "${MEMORY_EMBEDDING_MODEL:-nomic-embed-text}"
+    vector_dimension: 768
+    similarity_threshold: 0.7
+    top_k: 5
+    
+# =============================================================================
+# Session Configuration
+# =============================================================================
+session:
+  timeout_minutes: 60
+  max_concurrent: 10
+  cleanup_interval_minutes: 30
+  
+# =============================================================================
+# Security Configuration
+# =============================================================================
+security:
+  # Authentication
+  auth_enabled: true
+  jwt_secret: "${JWT_SECRET_KEY}"
+  jwt_algorithm: "${JWT_ALGORITHM:-HS256}"
+  jwt_expiration_hours: 24
+  
+  # CORS
+  cors_origins:
+    - "http://localhost:7860"
+    - "http://localhost:3000"
+    
+  # Rate limiting
+  rate_limit:
+    requests_per_minute: 60
+    burst_size: 10

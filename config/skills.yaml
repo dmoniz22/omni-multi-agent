@@ -1,0 +1,69 @@
+# OMNI Skill Configuration
+# Skill registry and settings
+
+skills:
+  - name: browser
+    display_name: "Browser"
+    description: "Web browsing and scraping capabilities"
+    enabled: true
+    version: "1.0.0"
+    config:
+      timeout_seconds: 30
+      rate_limit_rpm: 60
+      allowed_schemes:
+        - https
+        - http
+      blocked_domains: []
+      
+  - name: github
+    display_name: "GitHub"
+    description: "GitHub API integration for repository and code operations"
+    enabled: true
+    version: "1.0.0"
+    config:
+      timeout_seconds: 30
+      rate_limit_rpm: 60
+      require_confirmation_for_write: true
+      max_file_size_kb: 1024
+      
+  - name: search
+    display_name: "Search"
+    description: "Web search capabilities via DuckDuckGo or SearXNG"
+    enabled: true
+    version: "1.0.0"
+    config:
+      provider: "duckduckgo"
+      searxng_url: ""
+      max_results: 10
+      timeout_seconds: 30
+      
+  - name: file
+    display_name: "File System"
+    description: "File read/write operations within a sandboxed workspace"
+    enabled: true
+    version: "1.0.0"
+    config:
+      workspace_root: "./workspace"
+      max_file_size_mb: 10
+      allowed_extensions:
+        - .txt
+        - .md
+        - .py
+        - .json
+        - .yaml
+        - .yml
+        - .csv
+      blocked_patterns:
+        - ".."
+        - "~"
+        - ".env"
+        
+  - name: calculator
+    display_name: "Calculator"
+    description: "Mathematical expression evaluation and unit conversion"
+    enabled: true
+    version: "1.0.0"
+    config:
+      max_expression_length: 1000
+      max_iterations: 100
+      precision: 10
