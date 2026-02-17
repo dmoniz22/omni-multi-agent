@@ -144,10 +144,11 @@ async def health_check() -> bool:
     Returns:
         bool: True if database is reachable
     """
+    from sqlalchemy import text
     try:
         engine = get_engine()
         async with engine.connect() as conn:
-            result = await conn.execute("SELECT 1")
+            result = await conn.execute(text("SELECT 1"))
             await result.scalar()
         return True
     except Exception as e:
