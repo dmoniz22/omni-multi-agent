@@ -1,0 +1,37 @@
+[project]
+name = "omni"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiofiles>=24.1.0",
+    "alembic>=1.18.4",
+    "asyncpg>=0.31.0",
+    "beautifulsoup4>=4.14.3",
+    "crewai>=0.100.0",
+    "fastapi>=0.129.0",
+    "gradio>=6.5.1",
+    "httpx>=0.28.1",
+    "langchain-core>=1.2.13",
+    "langchain-ollama>=1.0.1",
+    "langgraph>=1.0.8",
+    "pydantic>=2.12.5",
+    "pydantic-ai>=1.60.0",
+    "pydantic-settings>=2.13.0",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.0.46",
+    "structlog>=25.5.0",
+    "sympy>=1.14.0",
+    "typer>=0.24.0",
+    "uvicorn>=0.41.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.15.1",
+]
