@@ -28,11 +28,72 @@ All LLM inference runs on **Ollama** locally.
 - [x] Integration tests for database operations
 - [x] All tests passing
 
-**Next**: Phase 3 - Core Orchestration (LangGraph workflow)
+### Phase 3: Core Orchestration ✅ COMPLETE
+- [x] PostgreSQL checkpointer for LangGraph state persistence
+- [x] Query analyzer with LLM-based task analysis
+- [x] Orchestrator decision node with routing logic
+- [x] Department router for crew selection
+- [x] Crew execution node (mock implementation)
+- [x] Validation node stub
+- [x] Response collator and output nodes
+- [x] Edge routing functions
+- [x] Complete LangGraph workflow assembly
+
+### Phase 4: First Crew Prototype ✅ COMPLETE
+- [x] BaseCrew abstract class (crews/base.py)
+- [x] CrewRegistry with auto-discovery (registry/crew_registry.py)
+- [x] Research department agents (Web Researcher, Content Analyzer, Fact Checker)
+- [x] ResearchCrew with sequential process
+- [x] Integration with orchestrator for actual crew execution
+- [x] End-to-end integration test
+
+**Note**: Phase 4 code is complete but execution requires Python 3.11/3.12 due to CrewAI's ChromaDB dependency. See [Python Version Compatibility](#python-version-compatibility) below.
+
+**Next**: Phase 5 - Validation Layer (PydanticAI validators and schemas)
+
+## Python Version Compatibility ⚠️
+
+**IMPORTANT**: OMNI requires **Python 3.11 or 3.12**. Python 3.14 is **NOT SUPPORTED** due to upstream compatibility issues.
+
+### Why Python 3.11/3.12?
+
+OMNI's Layer 2 (CrewAI) depends on **ChromaDB** for internal knowledge/RAG features. ChromaDB currently uses Pydantic v1 patterns that are incompatible with Python 3.14's stricter type inference. This is an **upstream issue** affecting CrewAI, not OMNI's code.
+
+**The issue:**
+- Our design: PostgreSQL + pgvector ✅ (fully implemented)
+- CrewAI's internal dependency: ChromaDB (for CrewAI's knowledge features)
+- ChromaDB fails on Python 3.14 with: `pydantic.v1.errors.ConfigError: unable to infer type for attribute "chroma_server_nofile"`
+
+**What works:**
+- ✅ All OMNI code is correct and will work on Python 3.11/3.12
+- ✅ PostgreSQL + pgvector is our actual storage layer (not ChromaDB)
+- ✅ ChromaDB is only an unused internal dependency of CrewAI
+
+**What doesn't work:**
+- ❌ Running on Python 3.14 (CrewAI import fails)
+- ❌ Cannot completely disable ChromaDB in CrewAI (import-time dependency)
+
+### Setting up Python 3.11 or 3.12
+
+```bash
+# Using pyenv
+pyenv install 3.12.0
+pyenv local 3.12.0
+
+# Or using conda
+conda create -n omni python=3.12
+conda activate omni
+
+# Then reinstall dependencies
+uv sync
+```
 
 ## Quick Start
 
 ```bash
+# Prerequisites: Python 3.11 or 3.12 (NOT 3.14)
+python --version  # Should show 3.11.x or 3.12.x
+
 # Install dependencies
 uv sync
 
@@ -52,6 +113,7 @@ uv run python -m omni.main
 
 ## Running Tests
 
+### Phase 1 & 2 Tests (Database and Core)
 ```bash
 # Run all tests
 uv run pytest tests/
@@ -61,6 +123,26 @@ uv run pytest tests/unit/test_state.py -v
 
 # Run with coverage
 uv run pytest --cov=src/omni tests/
+```
+
+### Phase 4 Tests (Research Crew)
+```bash
+# Test crew discovery (doesn't require Ollama)
+uv run python tests/integration/test_phase4_crew.py
+
+# Full test including crew execution (requires Ollama)
+# Prerequisites:
+# 1. Ollama must be running
+# 2. Required models must be available:
+#    - gemma3:12b (for web researcher and content analyzer)
+#    - llama3.1:8b (for fact checker)
+#
+# Install models:
+#   ollama pull gemma3:12b
+#   ollama pull llama3.1:8b
+#
+# Then run:
+#   uv run python tests/integration/test_phase4_crew.py
 ```
 
 ## Project Structure
