@@ -8,12 +8,12 @@ Agents:
     - Content Analyzer: Summarizes and extracts key insights
     - Fact Checker: Verifies claims and cross-references sources
 """
-from typing import List
+from typing import List, Optional
 
 from crewai import Agent
 
 from omni.core.logging import get_logger
-from omni.core.models import ModelFactory
+from omni.core.config import get_settings
 
 logger = get_logger(__name__)
 
@@ -25,17 +25,27 @@ class ResearchAgents:
     for conducting comprehensive research tasks.
     
     Usage:
-        factory = ResearchAgents(model_factory)
+        factory = ResearchAgents()
         agents = factory.create_all()
     """
     
-    def __init__(self, model_factory: ModelFactory):
-        """Initialize the agents factory.
+    def __init__(self):
+        """Initialize the agents factory."""
+        self.settings = get_settings()
+        self.base_url = self.settings.ollama.base_url
+        
+    def _create_llm(self, model: str, temperature: float = 0.7) -> str:
+        """Create a CrewAI LLM identifier for Ollama.
         
         Args:
-            model_factory: Factory for creating LLM models
+            model: Model name (e.g., "gemma3:12b")
+            temperature: Sampling temperature (not used in identifier)
+            
+        Returns:
+            str: LLM identifier string for CrewAI
         """
-        self.model_factory = model_factory
+        # CrewAI expects format: "ollama/model_name"
+        return f"ollama/{model}"
         
     def create_web_researcher(self) -> Agent:
         """Create the Web Researcher agent.
@@ -49,7 +59,7 @@ class ResearchAgents:
             Agent: Configured Web Researcher agent
         """
         # Get model from config - uses gemma3:12b for research
-        llm = self.model_factory.get("gemma3:12b", temperature=0.7)
+        llm = self._create_llm("gemma3:12b", temperature=0.7)
         
         return Agent(
             role="Web Researcher",
@@ -78,7 +88,7 @@ class ResearchAgents:
             Agent: Configured Content Analyzer agent
         """
         # Uses gemma3:12b for analysis
-        llm = self.model_factory.get("gemma3:12b", temperature=0.6)
+        llm = self._create_llm("gemma3:12b", temperature=0.6)
         
         return Agent(
             role="Content Analyzer",
@@ -107,7 +117,7 @@ class ResearchAgents:
             Agent: Configured Fact Checker agent
         """
         # Uses llama3.1:8b for fact checking (lighter model for verification tasks)
-        llm = self.model_factory.get("llama3.1:8b", temperature=0.3)
+        llm = self._create_llm("llama3.1:8b", temperature=0.3)
         
         return Agent(
             role="Fact Checker",
