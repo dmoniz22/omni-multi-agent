@@ -100,13 +100,25 @@ async def orchestrator_decision(state: OmniState) -> dict:
     
     if missing_departments:
         target_crew = missing_departments[0]
+        
+        # Format crew_input based on the target crew
+        if target_crew == "research":
+            crew_input = {
+                "query": state["original_task"],
+                "depth": "standard",
+                "sources_required": 5
+            }
+        else:
+            # Generic input for other crews
+            crew_input = {
+                "task": state["original_task"],
+                "context": state.get("current_objective", "")
+            }
+        
         decision = OrchestratorDecision(
             action=Action.DELEGATE,
             target_crew=target_crew,
-            crew_input={
-                "task": state["original_task"],
-                "context": state.get("current_objective", "")
-            },
+            crew_input=crew_input,
             reasoning=f"Delegating to {target_crew} department",
             confidence=0.8
         )

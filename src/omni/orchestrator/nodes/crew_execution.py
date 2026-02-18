@@ -6,6 +6,7 @@ from datetime import datetime
 
 from omni.core.state import OmniState, StepType
 from omni.core.logging import get_logger
+from omni.registry import get_crew_registry
 
 logger = get_logger("omni.orchestrator.nodes.crew_execution")
 
@@ -25,26 +26,92 @@ async def crew_execution(state: OmniState) -> dict:
     
     logger.info("Executing crew", crew=target_crew)
     
-    # For Phase 3: Mock crew execution
-    # In production, this would call CrewAdapter.execute_crew()
-    mock_output = {
-        "crew": target_crew,
-        "result": f"Mock result from {target_crew} crew",
-        "status": "completed"
-    }
+    # Get the crew registry
+    registry = get_crew_registry()
     
-    logger.info("Crew execution complete", crew=target_crew)
+    # Check if crew is registered
+    if not registry.is_registered(target_crew):
+        logger.error("Crew not found in registry", crew=target_crew)
+        error_output = {
+            "crew": target_crew,
+            "error": f"Crew '{target_crew}' not found in registry",
+            "status": "failed"
+        }
+        return {
+            "partial_results": {target_crew: error_output},
+            "history": [{
+                "step_number": state["control"]["current_step"],
+                "step_type": StepType.CREW_EXECUTION,
+                "node_name": "crew_execution",
+                "input_data": crew_input,
+                "output_data": error_output,
+                "timestamp": datetime.utcnow().isoformat(),
+                "duration_ms": 0,
+                "model_used": f"{target_crew}_crew",
+                "error": f"Crew '{target_crew}' not found"
+            }]
+        }
     
-    return {
-        "partial_results": {target_crew: mock_output},
-        "history": [{
-            "step_number": state["control"]["current_step"],
-            "step_type": StepType.CREW_EXECUTION,
-            "node_name": "crew_execution",
-            "input_data": crew_input,
-            "output_data": mock_output,
-            "timestamp": datetime.utcnow().isoformat(),
-            "duration_ms": 1000,
-            "model_used": f"{target_crew}_crew"
-        }]
-    }
+    # Execute the crew
+    start_time = datetime.utcnow()
+    try:
+        # Execute via registry
+        result = registry.execute(target_crew, crew_input)
+        
+        duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        
+        output = {
+            "crew": target_crew,
+            "result": result,
+            "status": "completed"
+        }
+        
+        logger.info(
+            "Crew execution complete",
+            crew=target_crew,
+            duration_ms=duration_ms
+        )
+        
+        return {
+            "partial_results": {target_crew: output},
+            "history": [{
+                "step_number": state["control"]["current_step"],
+                "step_type": StepType.CREW_EXECUTION,
+                "node_name": "crew_execution",
+                "input_data": crew_input,
+                "output_data": output,
+                "timestamp": datetime.utcnow().isoformat(),
+                "duration_ms": duration_ms,
+                "model_used": f"{target_crew}_crew"
+            }]
+        }
+        
+    except Exception as e:
+        duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        
+        logger.error(
+            "Crew execution failed",
+            crew=target_crew,
+            error=str(e)
+        )
+        
+        error_output = {
+            "crew": target_crew,
+            "error": str(e),
+            "status": "failed"
+        }
+        
+        return {
+            "partial_results": {target_crew: error_output},
+            "history": [{
+                "step_number": state["control"]["current_step"],
+                "step_type": StepType.CREW_EXECUTION,
+                "node_name": "crew_execution",
+                "input_data": crew_input,
+                "output_data": error_output,
+                "timestamp": datetime.utcnow().isoformat(),
+                "duration_ms": duration_ms,
+                "model_used": f"{target_crew}_crew",
+                "error": str(e)
+            }]
+        }
