@@ -2,6 +2,23 @@
 
 Contains registries for crews, skills, and validators.
 """
-from omni.registry.crew_registry import CrewRegistry, get_crew_registry, reset_crew_registry
 
-__all__ = ["CrewRegistry", "get_crew_registry", "reset_crew_registry"]
+from omni.registry.crew_registry import (
+    CrewRegistry,
+    get_crew_registry,
+    reset_crew_registry,
+)
+from omni.registry.validator_registry import (
+    ValidatorRegistry,
+    get_validator_registry,
+    reset_validator_registry,
+)
+
+__all__ = [
+    "CrewRegistry",
+    "get_crew_registry",
+    "reset_crew_registry",
+    "ValidatorRegistry",
+    "get_validator_registry",
+    "reset_validator_registry",
+]
