@@ -22,26 +22,26 @@ services:
     networks:
       - omni-network
 
-  # OMNI Application (to be enabled after Phase 11)
-  # app:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: omni-app
-  #   restart: unless-stopped
-  #   environment:
-  #     - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-omni_user}:${POSTGRES_PASSWORD:-omni_password}@postgres:5432/${POSTGRES_DB:-omni_db}
-  #     - OLLAMA_BASE_URL=http://host.docker.internal:11434
-  #   ports:
-  #     - "8000:8000"
-  #     - "7860:7860"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   networks:
-  #     - omni-network
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
+  # OMNI Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omni-app
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-omni_user}:${POSTGRES_PASSWORD:-omni_password}@postgres:5432/${POSTGRES_DB:-omni_db}
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    ports:
+      - "8000:8000"
+      - "7860:7860"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omni-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   postgres_data:
