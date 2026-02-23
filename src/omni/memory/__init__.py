@@ -5,7 +5,12 @@ Provides short-term (checkpoint-based) and long-term (vector-based) memory.
 
 from omni.memory.context import ContextManager, get_context_manager
 from omni.memory.short_term import ShortTermMemory, get_short_term_memory
-from omni.memory.long_term import LongTermMemory, get_long_term_memory, MemoryEntry
+from omni.memory.long_term import (
+    LongTermMemory,
+    get_long_term_memory,
+    MemoryEntry,
+    TaskEntry,
+)
 
 __all__ = [
     "ContextManager",
@@ -15,4 +20,5 @@ __all__ = [
     "LongTermMemory",
     "get_long_term_memory",
     "MemoryEntry",
+    "TaskEntry",
 ]

@@ -116,6 +116,46 @@ def create_dashboard() -> gr.Blocks:
                 clear_btn = gr.Button("Clear")
             task_output = gr.Textbox(label="Result", lines=10)
 
+            with gr.Accordion("📚 Past Tasks", open=False):
+                gr.Markdown("View and resume previous tasks from the database.")
+
+                with gr.Row():
+                    view_tasks_btn = gr.Button("Load Past Tasks", variant="secondary")
+
+                past_tasks_output = gr.JSON(label="Your Task History")
+
+                def load_past_tasks():
+                    """Load past tasks from database."""
+                    try:
+                        import asyncio
+                        from omni.memory import get_long_term_memory
+
+                        async def get_tasks():
+                            memory = get_long_term_memory()
+                            # Get a default session or recent tasks
+                            tasks = await memory.get_session_tasks(
+                                session_id="default",
+                                limit=20,
+                            )
+                            return [t.model_dump() for t in tasks]
+
+                        tasks = asyncio.run(get_tasks())
+                        if not tasks:
+                            return {
+                                "message": "No past tasks found. Tasks will be saved after execution."
+                            }
+                        return {"tasks": tasks}
+                    except Exception as e:
+                        return {
+                            "error": str(e),
+                            "message": "Database may not be available. Make sure PostgreSQL is running.",
+                        }
+
+                view_tasks_btn.click(
+                    fn=load_past_tasks,
+                    outputs=past_tasks_output,
+                )
+
             def submit_task(task: str):
                 """Execute task through the orchestrator."""
                 if not task.strip():
@@ -134,10 +174,27 @@ def create_dashboard() -> gr.Blocks:
                     import asyncio
                     from omni.orchestrator.graph import get_workflow
                     from omni.core.state import create_initial_state
+                    from omni.memory import get_long_term_memory
                     import uuid
 
                     task_id = str(uuid.uuid4())
                     session_id = str(uuid.uuid4())
+
+                    # Save task to database
+                    async def save_task_to_db():
+                        memory = get_long_term_memory()
+                        await memory.save_task(
+                            session_id=session_id,
+                            task_id=task_id,
+                            original_task=task,
+                            status="running",
+                        )
+
+                    # Try to save task (may fail if DB not available)
+                    try:
+                        asyncio.run(save_task_to_db())
+                    except Exception as db_err:
+                        print(f"Warning: Could not save task to database: {db_err}")
 
                     initial_state = create_initial_state(
                         task_id=task_id,
@@ -151,7 +208,26 @@ def create_dashboard() -> gr.Blocks:
 
                     result = asyncio.run(run_workflow())
 
-                    return f"Task: {task}\n\nResult:\n{json.dumps(result.get('final_output', {}), indent=2)}"
+                    final_output = result.get("final_output", {})
+
+                    # Update task in database
+                    async def update_task_in_db():
+                        memory = get_long_term_memory()
+                        await memory.update_task(
+                            task_id=task_id,
+                            status="completed",
+                            final_response=final_output,
+                            execution_summary=result.get("execution_summary", {}),
+                        )
+
+                    try:
+                        asyncio.run(update_task_in_db())
+                    except Exception as db_err:
+                        print(f"Warning: Could not update task in database: {db_err}")
+
+                    return (
+                        f"Task: {task}\n\nResult:\n{json.dumps(final_output, indent=2)}"
+                    )
                 except Exception as e:
                     return f"Error executing task: {str(e)}"
 
