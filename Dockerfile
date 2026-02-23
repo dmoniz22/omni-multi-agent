@@ -17,4 +17,6 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000 7860
 
-CMD ["python", "-m", "uvicorn", "omni.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run both API and Dashboard in background
+CMD python -m uvicorn omni.api.app:app --host 0.0.0.0 --port 8000 & \
+    python -m omni.dashboard.main
