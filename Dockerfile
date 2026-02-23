@@ -10,7 +10,7 @@ COPY pyproject.toml ./
 COPY src/ ./src/
 
 RUN pip install --no-cache-dir uv && \
-    uv pip install --system -r <(grep -v "dev" pyproject.toml | grep -v "test" || true) pyproject.toml
+    uv pip install --system pyproject.toml
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
