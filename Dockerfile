@@ -4,13 +4,27 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Playwright browsers
+RUN pip install playwright && \
+    playwright install chromium && \
+    playwright install-deps
 
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir .
+    pip install --no-cache-dir . && \
+    pip install --no-cache-dir \
+        pyautogui \
+        mss \
+        pygetwindow \
+        playwright \
+        httpx \
+        beautifulsoup4 \
+        lxml
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
