@@ -8,9 +8,11 @@ Agents:
     - Content Analyzer: Summarizes and extracts key insights
     - Fact Checker: Verifies claims and cross-references sources
 """
+
 from typing import List, Optional
 
 from crewai import Agent
+from crewai.tools import tool
 
 from omni.core.logging import get_logger
 from omni.core.config import get_settings
@@ -18,49 +20,67 @@ from omni.core.config import get_settings
 logger = get_logger(__name__)
 
 
+@tool("web_search")
+def web_search(query: str, num_results: int = 5) -> str:
+    """Search the web for information on any topic.
+
+    Args:
+        query: The search query
+        num_results: Number of results to return (default 5)
+
+    Returns:
+        Search results as string
+    """
+    from omni.skills.search import SearchSkill
+
+    skill = SearchSkill()
+    result = skill.execute("web_search", {"query": query, "num_results": num_results})
+    return str(result)
+
+
+@tool("browse_web")
+def browse_web(url: str) -> str:
+    """Navigate to a URL and extract information.
+
+    Args:
+        url: The URL to navigate to
+
+    Returns:
+        Page content as string
+    """
+    from omni.skills.browser import BrowserSkill
+
+    skill = BrowserSkill()
+    result = skill.execute("navigate", {"url": url})
+    content = result.get("content", "No content")[:2000]
+    title = result.get("title", "No title")
+    return f"Title: {title}\n\nContent:\n{content}"
+
+
 class ResearchAgents:
     """Factory for creating Research department agents.
-    
+
     Creates agents with appropriate roles, goals, and backstories
     for conducting comprehensive research tasks.
-    
+
     Usage:
         factory = ResearchAgents()
         agents = factory.create_all()
     """
-    
+
     def __init__(self):
         """Initialize the agents factory."""
         self.settings = get_settings()
         self.base_url = self.settings.ollama.base_url
-        
+
     def _create_llm(self, model: str, temperature: float = 0.7) -> str:
-        """Create a CrewAI LLM identifier for Ollama.
-        
-        Args:
-            model: Model name (e.g., "gemma3:12b")
-            temperature: Sampling temperature (not used in identifier)
-            
-        Returns:
-            str: LLM identifier string for CrewAI
-        """
-        # CrewAI expects format: "ollama/model_name"
+        """Create a CrewAI LLM identifier for Ollama."""
         return f"ollama/{model}"
-        
+
     def create_web_researcher(self) -> Agent:
-        """Create the Web Researcher agent.
-        
-        Responsible for:
-        - Searching and navigating web sources
-        - Extracting relevant information
-        - Gathering raw data on research topics
-        
-        Returns:
-            Agent: Configured Web Researcher agent
-        """
-        # Get model from config - uses gemma3:12b for research
+        """Create the Web Researcher agent."""
         llm = self._create_llm("gemma3:12b", temperature=0.7)
-        
+
         return Agent(
             role="Web Researcher",
             goal="Gather comprehensive and accurate information from web sources on any given topic",
@@ -73,23 +93,13 @@ class ResearchAgents:
             verbose=True,
             allow_delegation=False,
             llm=llm,
+            tools=[web_search, browse_web],
         )
-        
+
     def create_content_analyzer(self) -> Agent:
-        """Create the Content Analyzer agent.
-        
-        Responsible for:
-        - Summarizing research findings
-        - Extracting key points and insights
-        - Identifying patterns and trends
-        - Citing sources appropriately
-        
-        Returns:
-            Agent: Configured Content Analyzer agent
-        """
-        # Uses gemma3:12b for analysis
+        """Create the Content Analyzer agent."""
         llm = self._create_llm("gemma3:12b", temperature=0.6)
-        
+
         return Agent(
             role="Content Analyzer",
             goal="Analyze and synthesize research findings into clear, actionable insights with proper citations",
@@ -103,22 +113,11 @@ class ResearchAgents:
             allow_delegation=False,
             llm=llm,
         )
-        
+
     def create_fact_checker(self) -> Agent:
-        """Create the Fact Checker agent.
-        
-        Responsible for:
-        - Verifying claims against sources
-        - Cross-referencing information
-        - Assessing confidence levels
-        - Identifying potential misinformation
-        
-        Returns:
-            Agent: Configured Fact Checker agent
-        """
-        # Uses llama3.1:8b for fact checking (lighter model for verification tasks)
+        """Create the Fact Checker agent."""
         llm = self._create_llm("llama3.1:8b", temperature=0.3)
-        
+
         return Agent(
             role="Fact Checker",
             goal="Verify all claims and ensure accuracy by cross-referencing sources and assessing confidence levels",
@@ -133,23 +132,19 @@ class ResearchAgents:
             allow_delegation=False,
             llm=llm,
         )
-        
+
     def create_all(self) -> List[Agent]:
-        """Create all Research department agents.
-        
-        Returns:
-            List[Agent]: List containing all three research agents
-        """
+        """Create all Research department agents."""
         agents = [
             self.create_web_researcher(),
             self.create_content_analyzer(),
             self.create_fact_checker(),
         ]
-        
+
         logger.debug(
             "Created Research department agents",
             agent_count=len(agents),
-            agent_roles=[a.role for a in agents]
+            agent_roles=[a.role for a in agents],
         )
-        
+
         return agents
