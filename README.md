@@ -10,110 +10,105 @@ All LLM inference runs on **Ollama** locally.
 
 ## Implementation Status
 
-### Phase 1: Foundation ✅ COMPLETE
-- [x] Project initialization with uv
-- [x] All dependencies installed (LangGraph, CrewAI, PydanticAI, FastAPI, Gradio)
-- [x] Full directory structure created
-- [x] Configuration files (YAML configs, .env.example)
-- [x] Core modules implemented (constants, exceptions, config, state, models, logging)
-- [x] Unit tests (50 tests, all passing)
+### Phase 1-4: Foundation ✅ COMPLETE
+- Project initialization with uv
+- All dependencies installed (LangGraph, CrewAI, PydanticAI, FastAPI)
+- Full directory structure created
+- PostgreSQL with pgvector in Docker
+- Core modules (constants, exceptions, config, state, models, logging)
+- LangGraph workflow with checkpointer
+- First Crew (Research department)
 
-### Phase 2: Database Setup ✅ COMPLETE
-- [x] PostgreSQL with pgvector in Docker
-- [x] Alembic migrations configured with async SQLAlchemy
-- [x] Database engine with connection pooling
-- [x] SQLAlchemy ORM models (Session, Task, TaskStep, MemoryVector, AuditLog, Checkpoint)
-- [x] Initial migration created and applied
-- [x] Repository layer (Session, Task, TaskStep, Memory CRUD operations)
-- [x] Integration tests for database operations
-- [x] All tests passing
+### Phase 5: Validation Layer ✅ COMPLETE
+- PydanticAI validators and schemas
+- InputValidator, OutputValidator, ResponseValidator
+- ValidatorRegistry with auto-discovery
 
-### Phase 3: Core Orchestration ✅ COMPLETE
-- [x] PostgreSQL checkpointer for LangGraph state persistence
-- [x] Query analyzer with LLM-based task analysis
-- [x] Orchestrator decision node with routing logic
-- [x] Department router for crew selection
-- [x] Crew execution node (mock implementation)
-- [x] Validation node stub
-- [x] Response collator and output nodes
-- [x] Edge routing functions
-- [x] Complete LangGraph workflow assembly
+### Phase 6: Dynamic Routing ✅ COMPLETE
+- Orchestrator uses real LLM (qwen3:14b)
+- ContextManager for context window management
 
-### Phase 4: First Crew Prototype ✅ COMPLETE
-- [x] BaseCrew abstract class (crews/base.py)
-- [x] CrewRegistry with auto-discovery (registry/crew_registry.py)
-- [x] Research department agents (Web Researcher, Content Analyzer, Fact Checker)
-- [x] ResearchCrew with sequential process
-- [x] Integration with orchestrator for actual crew execution
-- [x] End-to-end integration test
+### Phase 7: Multi-Crew Expansion ✅ COMPLETE
+- 6 crews: Research, GitHub, Social, Analysis, Writing, Coding
+- Auto-discovery via CrewRegistry
 
-**Note**: Phase 4 code is complete but execution requires Python 3.11/3.12 due to CrewAI's ChromaDB dependency. See [Python Version Compatibility](#python-version-compatibility) below.
+### Phase 8: Skills/Tools System ✅ COMPLETE
+- BaseSkill class with action definitions
+- SkillRegistry for discovery and execution
+- 5 skills: File, Calculator, Search, Browser, GitHub
 
-**Next**: Phase 5 - Validation Layer (PydanticAI validators and schemas)
+### Phase 9: Memory System ✅ COMPLETE
+- ShortTermMemory (LangGraph checkpoints)
+- LongTermMemory (pgvector embeddings)
+- ContextManager for context window
 
-## Python Version Compatibility ⚠️
+### Phase 10: API Layer ✅ COMPLETE
+- FastAPI application with CORS
+- Health endpoints (/health, /health/ready, /health/live)
+- Task endpoints (create, get, delete)
+- Session endpoints (create, get, delete)
 
-**IMPORTANT**: OMNI requires **Python 3.11 or 3.12**. Python 3.14 is **NOT SUPPORTED** due to upstream compatibility issues.
-
-### Why Python 3.11/3.12?
-
-OMNI's Layer 2 (CrewAI) depends on **ChromaDB** for internal knowledge/RAG features. ChromaDB currently uses Pydantic v1 patterns that are incompatible with Python 3.14's stricter type inference. This is an **upstream issue** affecting CrewAI, not OMNI's code.
-
-**The issue:**
-- Our design: PostgreSQL + pgvector ✅ (fully implemented)
-- CrewAI's internal dependency: ChromaDB (for CrewAI's knowledge features)
-- ChromaDB fails on Python 3.14 with: `pydantic.v1.errors.ConfigError: unable to infer type for attribute "chroma_server_nofile"`
-
-**What works:**
-- ✅ All OMNI code is correct and will work on Python 3.11/3.12
-- ✅ PostgreSQL + pgvector is our actual storage layer (not ChromaDB)
-- ✅ ChromaDB is only an unused internal dependency of CrewAI
-
-**What doesn't work:**
-- ❌ Running on Python 3.14 (CrewAI import fails)
-- ❌ Cannot completely disable ChromaDB in CrewAI (import-time dependency)
-
-### Setting up Python 3.11 or 3.12
-
-```bash
-# Using pyenv
-pyenv install 3.12.0
-pyenv local 3.12.0
-
-# Or using conda
-conda create -n omni python=3.12
-conda activate omni
-
-# Then reinstall dependencies
-uv sync
-```
+### Phase 11-12: Deployment & Testing ✅ COMPLETE
+- Dockerfile for OMNI app
+- docker-compose.yml with PostgreSQL + App services
+- Final integration tests
 
 ## Quick Start
 
+### Prerequisites
+- Python 3.12
+- Docker & Docker Compose
+- Ollama with qwen3:14b model
+
+### Setup
+
 ```bash
-# Prerequisites: Python 3.11 or 3.12 (NOT 3.14)
-python --version  # Should show 3.11.x or 3.12.x
+# 1. Clone and navigate to project
+cd omni
 
-# Install dependencies
-uv sync
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings
-
-# Start PostgreSQL (Docker)
+# 2. Start PostgreSQL
 docker-compose up -d postgres
 
-# Run migrations
+# 3. Run migrations
 uv run alembic upgrade head
 
-# Start the application
+# 4. Start Ollama (separate terminal)
+ollama serve
+ollama pull qwen3:14b
+
+# 5. Start the application
 uv run python -m omni.main
 ```
 
+### Docker Deployment
+
+```bash
+# Build and start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+```
+
+The API will be available at `http://localhost:8000`
+
+## Accessing the Application
+
+### API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `http://localhost:8000/health` | Health check |
+| `http://localhost:8000/docs` | Swagger API documentation |
+| `http://localhost:8000/tasks` | Task management |
+| `http://localhost:8000/sessions` | Session management |
+
+### Swagger UI
+
+Open `http://localhost:8000/docs` in your browser to explore and test the API interactively.
+
 ## Running Tests
 
-### Phase 1 & 2 Tests (Database and Core)
 ```bash
 # Run all tests
 uv run pytest tests/
@@ -125,26 +120,6 @@ uv run pytest tests/unit/test_state.py -v
 uv run pytest --cov=src/omni tests/
 ```
 
-### Phase 4 Tests (Research Crew)
-```bash
-# Test crew discovery (doesn't require Ollama)
-uv run python tests/integration/test_phase4_crew.py
-
-# Full test including crew execution (requires Ollama)
-# Prerequisites:
-# 1. Ollama must be running
-# 2. Required models must be available:
-#    - gemma3:12b (for web researcher and content analyzer)
-#    - llama3.1:8b (for fact checker)
-#
-# Install models:
-#   ollama pull gemma3:12b
-#   ollama pull llama3.1:8b
-#
-# Then run:
-#   uv run python tests/integration/test_phase4_crew.py
-```
-
 ## Project Structure
 
 ```
@@ -152,32 +127,24 @@ omni/
 ├── src/omni/           # Main application code
 │   ├── core/           # Core infrastructure (constants, config, state, models, logging)
 │   ├── orchestrator/   # LangGraph workflow
-│   ├── crews/          # CrewAI departments
+│   ├── crews/          # CrewAI departments (Research, GitHub, Social, Analysis, Writing, Coding)
 │   ├── validators/     # PydanticAI validation
-│   ├── skills/         # Tool ecosystem
+│   ├── skills/         # Tool ecosystem (File, Calculator, Search, Browser, GitHub)
 │   ├── db/             # Database layer
 │   ├── memory/         # Memory management
 │   ├── api/            # FastAPI backend
-│   └── dashboard/      # Gradio web UI
+│   └── main.py         # Entry point
 ├── config/             # YAML configuration files
-│   ├── settings.yaml   # System settings
-│   ├── models.yaml     # Model assignments (runtime editable)
-│   ├── departments.yaml # Department metadata
-│   └── skills.yaml     # Skill registry
+├── docker/             # Docker configurations
 ├── tests/              # Test suite
-│   ├── unit/           # Unit tests
-│   ├── integration/    # Integration tests
-│   └── e2e/            # End-to-end tests
 └── migrations/         # Database migrations
 ```
 
 ## Configuration
 
-See `config/` directory for YAML configuration files:
-- `settings.yaml` - Global system settings
-- `models.yaml` - Model definitions and routing (editable at runtime via dashboard)
-- `departments.yaml` - Department/crew definitions
-- `skills.yaml` - Skill registry configuration
+Environment variables (see `.env.example`):
+- `DATABASE_URL` - PostgreSQL connection string
+- `OLLAMA_BASE_URL` - Ollama API endpoint (default: http://localhost:11434)
 
 ## License
 
