@@ -1,7 +1,7 @@
 """Database engine and connection management for OMNI.
 
 Provides async SQLAlchemy engine with connection pooling and
-session management.
+session management. Supports both PostgreSQL and SQLite.
 """
 
 from contextlib import asynccontextmanager
@@ -29,6 +29,8 @@ _session_maker: async_sessionmaker[AsyncSession] | None = None
 def create_engine() -> AsyncEngine:
     """Create and configure the async database engine.
 
+    Supports both PostgreSQL (postgresql+asyncpg) and SQLite (sqlite+aiosqlite).
+
     Returns:
         AsyncEngine: Configured SQLAlchemy async engine
     """
@@ -38,22 +40,34 @@ def create_engine() -> AsyncEngine:
         return _engine
 
     settings = get_settings()
+    db_url = settings.database.url
 
     try:
-        _engine = create_async_engine(
-            settings.database.url,
-            pool_size=settings.database.pool_size,
-            max_overflow=settings.database.max_overflow,
-            pool_pre_ping=True,  # Verify connections before using
-            pool_recycle=3600,  # Recycle connections after 1 hour
-            echo=settings.debug,  # Log SQL in debug mode
-        )
-
-        logger.info(
-            "Database engine created",
-            pool_size=settings.database.pool_size,
-            max_overflow=settings.database.max_overflow,
-        )
+        # Check if using SQLite
+        if db_url.startswith("sqlite"):
+            # For SQLite, use aiosqlite and disable pool
+            _engine = create_async_engine(
+                db_url,
+                poolclass=NullPool,
+                echo=settings.debug,
+                connect_args={"check_same_thread": False},
+            )
+            logger.info("SQLite database engine created", url=db_url)
+        else:
+            # PostgreSQL
+            _engine = create_async_engine(
+                db_url,
+                pool_size=settings.database.pool_size,
+                max_overflow=settings.database.max_overflow,
+                pool_pre_ping=True,
+                pool_recycle=3600,
+                echo=settings.debug,
+            )
+            logger.info(
+                "PostgreSQL database engine created",
+                pool_size=settings.database.pool_size,
+                max_overflow=settings.database.max_overflow,
+            )
 
         return _engine
 
@@ -61,7 +75,7 @@ def create_engine() -> AsyncEngine:
         logger.error("Failed to create database engine", error=str(e))
         raise ConnectionError(
             f"Failed to create database engine: {e}",
-            details={"url": settings.database.url},
+            details={"url": db_url},
         )
 
 
@@ -151,11 +165,24 @@ async def health_check() -> bool:
         engine = get_engine()
         async with engine.connect() as conn:
             result = await conn.execute(text("SELECT 1"))
-            result.scalar()  # Consume the result
+            result.scalar()
         return True
     except Exception as e:
         logger.error("Database health check failed", error=str(e))
         return False
+
+
+async def init_db():
+    """Initialize database tables.
+
+    Creates all tables if they don't exist.
+    """
+    from omni.db.models import Base
+
+    engine = get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables initialized")
 
 
 # Convenience function for raw SQL queries
@@ -169,6 +196,8 @@ async def execute_query(query: str, params: dict | None = None):
     Returns:
         Query result
     """
+    from sqlalchemy import text
+
     async with get_session() as session:
-        result = await session.execute(query, params or {})
+        result = await session.execute(text(query), params or {})
         return result

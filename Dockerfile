@@ -24,7 +24,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
         playwright \
         httpx \
         beautifulsoup4 \
-        lxml
+        lxml \
+        aiosqlite
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
