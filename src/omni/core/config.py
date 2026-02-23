@@ -165,7 +165,7 @@ class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
     url: str = Field(
-        default="sqlite+aiosqlite:///omni.db",
+        default="postgresql+asyncpg://omni_user:omni_password@localhost:5433/omni_db",
         alias="DATABASE_URL",
     )
     pool_size: int = 10

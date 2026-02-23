@@ -1,7 +1,28 @@
 version: '3.8'
 
 services:
-  # OMNI Application (includes SQLite database)
+  # PostgreSQL Database
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: omni-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-omni_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-omni_password}
+      POSTGRES_DB: ${POSTGRES_DB:-omni_db}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omni_user} -d ${POSTGRES_DB:-omni_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - omni-network
+
+  # OMNI Application
   app:
     build:
       context: .
@@ -9,21 +30,24 @@ services:
     container_name: omni-app
     restart: unless-stopped
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///omni.db
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-omni_user}:${POSTGRES_PASSWORD:-omni_password}@postgres:5432/${POSTGRES_DB:-omni_db}
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
     ports:
       - "8000:8000"
       - "7860:7860"
-    volumes:
-      - omni_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omni-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
 volumes:
-  omni_data:
-    name: omni-data
+  postgres_data:
+    name: omni-postgres-data
 
 networks:
-  default:
+  omni-network:
     name: omni-network
     driver: bridge
