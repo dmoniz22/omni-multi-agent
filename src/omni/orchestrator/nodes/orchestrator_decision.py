@@ -106,7 +106,7 @@ async def orchestrator_decision(state: OmniState) -> dict:
     try:
         model = get_model("qwen3:14b", temperature=0.3)
 
-        response = model.invoke(
+        response = await model.ainvoke(
             [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

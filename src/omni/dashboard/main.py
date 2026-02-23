@@ -208,7 +208,9 @@ def create_dashboard() -> gr.Blocks:
 
                     result = asyncio.run(run_workflow())
 
-                    final_output = result.get("final_output", {})
+                    final_output = result.get(
+                        "final_response", result.get("final_output", {})
+                    )
 
                     # Update task in database
                     async def update_task_in_db():
