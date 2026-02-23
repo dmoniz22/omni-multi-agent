@@ -131,6 +131,7 @@ def create_dashboard() -> gr.Blocks:
                     return f"Error: Cannot connect to Ollama at {OLLAMA_URL}\n\nDetails: {str(e)}\n\nMake sure Ollama is running on your host machine."
 
                 try:
+                    import asyncio
                     from omni.orchestrator.graph import get_workflow
                     from omni.core.state import create_initial_state
                     import uuid
@@ -144,8 +145,11 @@ def create_dashboard() -> gr.Blocks:
                         original_task=task,
                     )
 
-                    workflow = get_workflow()
-                    result = workflow.invoke(initial_state)
+                    async def run_workflow():
+                        workflow = get_workflow()
+                        return await workflow.ainvoke(initial_state)
+
+                    result = asyncio.run(run_workflow())
 
                     return f"Task: {task}\n\nResult:\n{json.dumps(result.get('final_output', {}), indent=2)}"
                 except Exception as e:
