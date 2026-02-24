@@ -10,6 +10,16 @@ from omni.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Initialize database on module load
+try:
+    from omni.db.engine import init_db
+    import asyncio
+
+    asyncio.run(init_db())
+    logger.info("Database initialized for dashboard")
+except Exception as e:
+    logger.warning(f"Could not initialize database: {e}")
+
 MODELS_CONFIG_PATH = (
     Path(__file__).parent.parent.parent.parent / "config" / "models.yaml"
 )
