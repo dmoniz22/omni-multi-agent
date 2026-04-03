@@ -29,9 +29,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
+ENV API_PORT=8000
 
 EXPOSE 8000 7860
 
 # Run both API and Dashboard in background
-CMD python -m uvicorn omni.api.app:app --host 0.0.0.0 --port 8000 & \
+CMD python -m uvicorn omni.api.app:app --host 0.0.0.0 --port ${API_PORT:-8000} & \
     python -m omni.dashboard.main
