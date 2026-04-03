@@ -33,6 +33,7 @@ ENV API_PORT=8000
 
 EXPOSE 8000 7860
 
-# Run both API and Dashboard in background
-CMD python -m uvicorn omni.api.app:app --host 0.0.0.0 --port ${API_PORT:-8000} & \
-    python -m omni.dashboard.main
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+CMD ["/start.sh"]

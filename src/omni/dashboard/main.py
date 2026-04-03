@@ -1,6 +1,6 @@
 """Gradio dashboard for OMNI."""
 
-import gr
+import gradio as gr
 import json
 import os
 
