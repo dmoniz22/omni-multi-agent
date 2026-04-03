@@ -10,11 +10,17 @@ from pydantic import BaseModel, Field
 
 
 class Source(BaseModel):
-    """Source citation for the response."""
+    """Source citation for the response.
+
+    Unified source schema used by both crew outputs and final responses.
+    """
 
     title: str = Field(description="Source title")
     url: Optional[str] = Field(default=None, description="Source URL")
-    department: str = Field(description="Department that provided this source")
+    department: Optional[str] = Field(
+        default=None, description="Department that provided this source"
+    )
+    snippet: Optional[str] = Field(default=None, description="Relevant excerpt")
 
 
 class FinalResponse(BaseModel):

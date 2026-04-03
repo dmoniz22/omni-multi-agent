@@ -1,5 +1,6 @@
 """Memory vector repository for database operations."""
 
+from datetime import datetime
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -264,3 +265,32 @@ class MemoryRepository:
                 error=str(e),
             )
             raise RepositoryError(f"Failed to delete memories: {e}")
+
+    async def delete_older_than(self, cutoff: datetime) -> int:
+        """Delete all memories created before the cutoff date.
+
+        Args:
+            cutoff: Delete memories older than this datetime
+
+        Returns:
+            int: Number of memories deleted
+        """
+        try:
+            result = await self.session.execute(
+                select(MemoryVector).where(MemoryVector.created_at < cutoff)
+            )
+            memories = result.scalars().all()
+
+            count = 0
+            for memory in memories:
+                await self.session.delete(memory)
+                count += 1
+
+            await self.session.flush()
+
+            logger.info("Deleted old memories", cutoff=cutoff.isoformat(), count=count)
+            return count
+
+        except Exception as e:
+            logger.error("Failed to delete old memories", error=str(e))
+            raise RepositoryError(f"Failed to delete old memories: {e}")

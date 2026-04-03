@@ -4,7 +4,7 @@ Provides comprehensive memory storage and retrieval across sessions.
 Delegates to repository classes to avoid code duplication.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -179,10 +179,21 @@ class LongTermMemory:
 
     async def cleanup_old_memories(self, days: int = 30) -> int:
         """Clean up memories older than specified days."""
-        logger.warning(
-            "cleanup_old_memories not yet implemented - days parameter ignored"
-        )
-        return 0
+        try:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+            async with get_session() as session:
+                repo = MemoryRepository(session)
+                count = await repo.delete_older_than(cutoff)
+                logger.info(
+                    "Cleaned up old memories",
+                    days=days,
+                    cutoff=cutoff.isoformat(),
+                    deleted=count,
+                )
+                return count
+        except Exception as e:
+            logger.error("Failed to cleanup old memories", error=str(e))
+            return 0
 
     # ========== Task Persistence Methods (delegate to repositories) ==========
 

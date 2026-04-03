@@ -7,13 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
-class Source(BaseModel):
-    """Source information for research or analysis."""
-
-    title: str = Field(description="Source title")
-    url: str = Field(description="Source URL")
-    snippet: Optional[str] = Field(default=None, description="Relevant excerpt")
+from omni.validators.schemas.responses import Source
 
 
 class GitHubOutput(BaseModel):
