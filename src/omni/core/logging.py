@@ -2,28 +2,34 @@
 
 Configures JSON logging with component-based loggers and correlation IDs.
 """
+
 import logging
 import sys
-from typing import Any, Dict
 
 import structlog
 from structlog.processors import JSONRenderer, TimeStamper
-from structlog.stdlib import LoggerFactory, add_log_level, filter_by_level
+from structlog.stdlib import LoggerFactory, add_log_level
 
 from omni.core.config import get_settings
 
+_logging_configured = False
+
 
 def configure_logging():
-    """Configure structured logging for OMNI."""
+    """Configure structured logging for OMNI. Safe to call multiple times."""
+    global _logging_configured
+    if _logging_configured:
+        return
+
     settings = get_settings()
-    
+
     # Configure standard library logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=getattr(logging, settings.logging.level.upper()),
     )
-    
+
     # Configure structlog
     shared_processors: list = [
         # Add log level
@@ -33,7 +39,7 @@ def configure_logging():
         # Add logger name
         structlog.stdlib.ExtraAdder(),
     ]
-    
+
     if settings.logging.format == "json":
         # JSON format
         processors = shared_processors + [
@@ -46,7 +52,7 @@ def configure_logging():
             # Format as console output
             structlog.dev.ConsoleRenderer(),
         ]
-    
+
     structlog.configure(
         processors=processors,
         context_class=dict,
@@ -54,33 +60,34 @@ def configure_logging():
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
+    _logging_configured = True
 
 
 def get_logger(name: str, **context) -> structlog.stdlib.BoundLogger:
     """Get a structured logger with component context.
-    
+
     Args:
         name: Logger name (typically __name__)
         **context: Additional context to bind to all log messages
-        
+
     Returns:
         BoundLogger: Configured structured logger
     """
     logger = structlog.get_logger(name)
-    
+
     if context:
         logger = logger.bind(**context)
-    
+
     return logger
 
 
 def bind_correlation_id(logger: structlog.stdlib.BoundLogger, correlation_id: str):
     """Bind a correlation ID to the logger.
-    
+
     Args:
         logger: The logger instance
         correlation_id: Correlation ID for request tracing
-        
+
     Returns:
         BoundLogger: Logger with correlation ID bound
     """

@@ -84,9 +84,9 @@ class ResearchCrew(BaseCrew):
         """Initialize the Research crew."""
         super().__init__()
         self.agents_factory = ResearchAgents()
-        self._agents: Optional[List[Agent]] = None
+        self._agents: list[Agent] | None = None
 
-    def get_agents(self) -> List[Agent]:
+    def get_agents(self) -> list[Agent]:
         """Get all Research department agents.
 
         Returns:

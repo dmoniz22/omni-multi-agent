@@ -5,7 +5,7 @@ Requires pyautogui to be installed.
 """
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 

@@ -5,9 +5,7 @@ Supports navigation, scraping, clicking, form filling, and screenshots.
 """
 
 import base64
-import os
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 

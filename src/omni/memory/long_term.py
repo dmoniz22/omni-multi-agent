@@ -4,7 +4,7 @@ Provides comprehensive memory storage and retrieval across sessions.
 """
 
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from pydantic import BaseModel, Field
@@ -33,7 +33,7 @@ class MemoryEntry(BaseModel):
         default=None, description="Similarity score"
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Creation time"
+        default_factory=lambda: datetime.now(timezone.utc), description="Creation time"
     )
 
 
@@ -49,7 +49,7 @@ class TaskEntry(BaseModel):
         default=None, description="Execution summary"
     )
     total_steps: int = Field(default=0, description="Total steps executed")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = Field(default=None)
 
 
@@ -265,7 +265,7 @@ class LongTermMemory:
                 if status:
                     task.status = status
                     if status == "completed":
-                        task.completed_at = datetime.utcnow()
+                        task.completed_at = datetime.now(timezone.utc)
                 if final_response:
                     task.final_response = final_response
                 if execution_summary:

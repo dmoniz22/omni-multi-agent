@@ -3,8 +3,6 @@
 Implements specialized agents for social media content creation.
 """
 
-from typing import List
-
 from crewai import Agent
 
 
@@ -59,7 +57,7 @@ class SocialAgents:
             allow_delegation=False,
         )
 
-    def create_all(self) -> List[Agent]:
+    def create_all(self) -> list[Agent]:
         """Create all Social department agents."""
         return [
             self.create_content_creator(),

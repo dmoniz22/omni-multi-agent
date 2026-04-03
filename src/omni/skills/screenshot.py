@@ -7,7 +7,7 @@ Requires mss or pyscreenshot to be installed.
 import base64
 import os
 import tempfile
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 

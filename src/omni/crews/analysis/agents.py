@@ -3,8 +3,6 @@
 Implements specialized agents for data analysis.
 """
 
-from typing import List
-
 from crewai import Agent
 
 
@@ -48,7 +46,7 @@ class AnalysisAgents:
             allow_delegation=False,
         )
 
-    def create_all(self) -> List[Agent]:
+    def create_all(self) -> list[Agent]:
         return [
             self.create_data_analyst(),
             self.create_insight_generator(),

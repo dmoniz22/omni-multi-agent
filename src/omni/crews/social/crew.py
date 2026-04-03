@@ -61,9 +61,9 @@ class SocialCrew(BaseCrew):
     def __init__(self):
         super().__init__()
         self.agents_factory = SocialAgents()
-        self._agents: Optional[List[Agent]] = None
+        self._agents: list[Agent] | None = None
 
-    def get_agents(self) -> List[Agent]:
+    def get_agents(self) -> list[Agent]:
         if self._agents is None:
             self._agents = self.agents_factory.create_all()
         return self._agents

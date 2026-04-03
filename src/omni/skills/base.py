@@ -1,7 +1,7 @@
 """Base skill class and interface for OMNI skills system."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 

@@ -3,13 +3,7 @@
 Implements specialized agents for GitHub operations.
 """
 
-from typing import List
-
 from crewai import Agent
-
-from omni.core.logging import get_logger
-
-logger = get_logger(__name__)
 
 
 class GitHubAgents:
@@ -17,7 +11,7 @@ class GitHubAgents:
 
     def __init__(self):
         """Initialize GitHub agents factory."""
-        self._agents: List[Agent] = []
+        self._agents: list[Agent] = []
 
     def create_github_researcher(self) -> Agent:
         """Create the GitHub Researcher agent.
@@ -95,7 +89,7 @@ class GitHubAgents:
             allow_delegation=False,
         )
 
-    def create_all(self) -> List[Agent]:
+    def create_all(self) -> list[Agent]:
         """Create all GitHub department agents.
 
         Returns:

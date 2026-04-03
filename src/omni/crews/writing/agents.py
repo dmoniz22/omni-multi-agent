@@ -3,8 +3,6 @@
 Implements specialized agents for writing content.
 """
 
-from typing import List
-
 from crewai import Agent
 
 
@@ -47,7 +45,7 @@ class WritingAgents:
             allow_delegation=False,
         )
 
-    def create_all(self) -> List[Agent]:
+    def create_all(self) -> list[Agent]:
         return [
             self.create_editor(),
             self.create_longform_writer(),

@@ -76,9 +76,9 @@ class GitHubCrew(BaseCrew):
         """Initialize the GitHub crew."""
         super().__init__()
         self.agents_factory = GitHubAgents()
-        self._agents: Optional[List[Agent]] = None
+        self._agents: list[Agent] | None = None
 
-    def get_agents(self) -> List[Agent]:
+    def get_agents(self) -> list[Agent]:
         """Get all GitHub department agents."""
         if self._agents is None:
             self._agents = self.agents_factory.create_all()

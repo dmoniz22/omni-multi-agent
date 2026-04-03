@@ -3,8 +3,6 @@
 Implements specialized agents for coding tasks.
 """
 
-from typing import List
-
 from crewai import Agent
 
 
@@ -47,7 +45,7 @@ class CodingAgents:
             allow_delegation=False,
         )
 
-    def create_all(self) -> List[Agent]:
+    def create_all(self) -> list[Agent]:
         return [
             self.create_code_generator(),
             self.create_refactoring_agent(),
