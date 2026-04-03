@@ -7,8 +7,9 @@ for different LLM providers, with caching and health checking.
 import threading
 from typing import Optional
 
-from langchain_ollama import ChatOllama
 from langchain_core.language_models import BaseChatModel
+from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 from omni.core.config import get_settings
 from omni.core.exceptions import ModelConnectionError
@@ -23,6 +24,76 @@ class ModelFactory:
         self._clients: dict[str, BaseChatModel] = {}
         self._settings = get_settings()
 
+    def _create_ollama_model(
+        self,
+        model_name: str,
+        temperature: Optional[float],
+        max_tokens: Optional[int],
+        **kwargs,
+    ) -> BaseChatModel:
+        """Create an Ollama model client."""
+        base_url = self._settings.ollama.base_url
+        default_timeout = self._settings.ollama.default_timeout
+
+        return ChatOllama(
+            model=model_name,
+            base_url=base_url,
+            timeout=default_timeout,
+            temperature=temperature if temperature is not None else 0.7,
+            num_predict=max_tokens if max_tokens is not None else 4096,
+            **kwargs,
+        )
+
+    def _create_openrouter_model(
+        self,
+        model_name: str,
+        temperature: Optional[float],
+        max_tokens: Optional[int],
+        **kwargs,
+    ) -> BaseChatModel:
+        """Create an OpenRouter model client."""
+        api_key = self._settings.openrouter.api_key
+        if not api_key:
+            raise ModelConnectionError(
+                "OpenRouter API key not configured. Set OPENROUTER_API_KEY environment variable."
+            )
+
+        return ChatOpenAI(
+            model=model_name,
+            openai_api_key=api_key,
+            openai_api_base="https://openrouter.ai/api/v1",
+            temperature=temperature if temperature is not None else 0.7,
+            max_tokens=max_tokens if max_tokens is not None else 4096,
+            **kwargs,
+        )
+
+    def _create_openai_compatible_model(
+        self,
+        model_name: str,
+        temperature: Optional[float],
+        max_tokens: Optional[int],
+        **kwargs,
+    ) -> BaseChatModel:
+        """Create an OpenAI-compatible model client (for local proxies, Ollama with API key, etc.)."""
+        api_key = self._settings.openai_compatible.api_key or "not-needed"
+        base_url = self._settings.openai_compatible.base_url
+        default_timeout = self._settings.openai_compatible.default_timeout
+
+        if not base_url:
+            raise ModelConnectionError(
+                "OpenAI-compatible base URL not configured. Set OPENAI_BASE_URL environment variable."
+            )
+
+        return ChatOpenAI(
+            model=model_name,
+            openai_api_key=api_key,
+            openai_api_base=base_url,
+            timeout=default_timeout,
+            temperature=temperature if temperature is not None else 0.7,
+            max_tokens=max_tokens if max_tokens is not None else 4096,
+            **kwargs,
+        )
+
     def get(
         self,
         model_name: str,
@@ -33,7 +104,7 @@ class ModelFactory:
         """Get or create a model client.
 
         Args:
-            model_name: Name of the model (e.g., "qwen3:14b")
+            model_name: Name of the model (e.g., "qwen3:14b" or "openrouter:anthropic/claude-3.5-sonnet")
             temperature: Sampling temperature (0.0 - 1.0)
             max_tokens: Maximum tokens to generate
             **kwargs: Additional model-specific parameters
@@ -51,29 +122,34 @@ class ModelFactory:
         if cache_key in self._clients:
             return self._clients[cache_key]
 
-        # Get base configuration
-        base_url = self._settings.ollama.base_url
-        default_timeout = self._settings.ollama.default_timeout
-
-        # Create the model
-        try:
-            model = ChatOllama(
-                model=model_name,
-                base_url=base_url,
-                timeout=default_timeout,
-                temperature=temperature if temperature is not None else 0.7,
-                num_predict=max_tokens if max_tokens is not None else 4096,
-                **kwargs,
+        # Parse model prefix to determine provider
+        if model_name.startswith("openrouter:"):
+            actual_model = model_name.replace("openrouter:", "")
+            model = self._create_openrouter_model(
+                actual_model, temperature, max_tokens, **kwargs
+            )
+        elif model_name.startswith("openai-compatible:"):
+            actual_model = model_name.replace("openai-compatible:", "")
+            model = self._create_openai_compatible_model(
+                actual_model, temperature, max_tokens, **kwargs
+            )
+        elif ":" in model_name and not model_name.startswith(
+            ("ollama:", "anthropic:", "google:", "cohere:")
+        ):
+            # Assume OpenAI-compatible if it has a colon but no known prefix
+            # This handles cases like "custom-model:version" from local proxies
+            actual_model = model_name
+            model = self._create_openai_compatible_model(
+                actual_model, temperature, max_tokens, **kwargs
+            )
+        else:
+            # Default to Ollama
+            model = self._create_ollama_model(
+                model_name, temperature, max_tokens, **kwargs
             )
 
-            self._clients[cache_key] = model
-            return model
-
-        except Exception as e:
-            raise ModelConnectionError(
-                f"Failed to create model client for {model_name}",
-                details={"error": str(e)},
-            )
+        self._clients[cache_key] = model
+        return model
 
     def get_for_role(
         self, layer: str, component: str, role: Optional[str] = None, **kwargs

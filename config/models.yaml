@@ -7,11 +7,26 @@
 # =============================================================================
 providers:
   ollama:
-    name: "Ollama"
+    name: "Ollama (Local)"
     base_url: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
     default_timeout: 120
     embedding_endpoint: "/api/embeddings"
     chat_endpoint: "/api/chat"
+    enabled: true
+    
+  openrouter:
+    name: "OpenRouter (Cloud)"
+    base_url: "https://openrouter.ai/api/v1"
+    api_key_env: "OPENROUTER_API_KEY"
+    default_timeout: 120
+    enabled: false
+    
+  openai_compatible:
+    name: "OpenAI-Compatible API"
+    base_url: "${OPENAI_BASE_URL:-}"
+    api_key_env: "OPENAI_API_KEY"
+    default_timeout: 120
+    enabled: false
     
 # =============================================================================
 # Available Models Registry

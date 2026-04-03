@@ -194,6 +194,26 @@ class OllamaSettings(BaseSettings):
     default_timeout: int = 120
 
 
+class OpenRouterSettings(BaseSettings):
+    """OpenRouter cloud provider configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="OPENROUTER_", extra="ignore")
+
+    api_key: str = Field(default="", alias="OPENROUTER_API_KEY")
+    base_url: str = "https://openrouter.ai/api/v1"
+    default_timeout: int = 120
+
+
+class OpenAISettings(BaseSettings):
+    """OpenAI-compatible API configuration (for local proxies or other providers)."""
+
+    model_config = SettingsConfigDict(env_prefix="OPENAI_", extra="ignore")
+
+    api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    base_url: str = Field(default="", alias="OPENAI_BASE_URL")
+    default_timeout: int = 120
+
+
 class Settings(BaseSettings):
     """Main settings class combining all configuration sources.
 
@@ -228,6 +248,8 @@ class Settings(BaseSettings):
     dashboard: DashboardSettings = Field(default_factory=DashboardSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
+    openrouter: OpenRouterSettings = Field(default_factory=OpenRouterSettings)
+    openai_compatible: OpenAISettings = Field(default_factory=OpenAISettings)
 
     @classmethod
     def settings_customise_sources(

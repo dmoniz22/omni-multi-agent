@@ -10,9 +10,13 @@ from omni.dashboard.config import (
     CLOUD_MODELS,
     get_available_models,
     get_all_available_models,
+    get_model_choices_for_dropdown,
     load_model_config,
     save_model_config,
     get_crew_agents,
+    is_cloud_model,
+    strip_provider_prefix,
+    add_provider_prefix,
 )
 
 logger = get_logger(__name__)
@@ -194,7 +198,8 @@ def create_dashboard() -> gr.Blocks:
             assignments = model_config.get("assignments", {})
             departments = assignments.get("departments", {})
 
-            available_models = get_available_models()
+            model_choices = get_model_choices_for_dropdown()
+            available_models = [m for _, m in model_choices]
 
             with gr.Row():
                 ollama_url_input = gr.Textbox(
@@ -227,6 +232,130 @@ def create_dashboard() -> gr.Blocks:
                 outputs=ollama_status,
             )
 
+            gr.Markdown("### ☁️ Cloud Providers")
+            gr.Markdown(
+                "Enable cloud providers like OpenRouter for access to GPT-4, Claude, Gemini, and more. "
+                "API keys are stored in environment variables."
+            )
+
+            model_config = load_model_config()
+            providers = model_config.get("providers", {})
+
+            with gr.Row():
+                openrouter_enabled = gr.Checkbox(
+                    label="Enable OpenRouter",
+                    value=providers.get("openrouter", {}).get("enabled", False),
+                )
+                openrouter_key_input = gr.Textbox(
+                    label="OpenRouter API Key",
+                    placeholder="sk-or-...",
+                    type="password",
+                    value="",
+                )
+
+            with gr.Row():
+                openai_enabled = gr.Checkbox(
+                    label="Enable OpenAI-Compatible",
+                    value=providers.get("openai_compatible", {}).get("enabled", False),
+                )
+                openai_url_input = gr.Textbox(
+                    label="OpenAI-Compatible Base URL",
+                    placeholder="https://api.openai.com/v1 or http://localhost:8080",
+                    value=providers.get("openai_compatible", {}).get("base_url", ""),
+                )
+
+            def check_openrouter_connection(api_key):
+                if not api_key:
+                    return "❌ Please enter an API key"
+                try:
+                    import httpx
+
+                    response = httpx.get(
+                        "https://openrouter.ai/api/v1/models",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        timeout=10,
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        models = data.get("data", [])[:5]
+                        return f"✅ Connected! Found {len(data.get('data', []))} models"
+                    return f"⚠️ HTTP {response.status_code}: {response.text[:100]}"
+                except Exception as e:
+                    return f"❌ {str(e)}"
+
+            def check_openai_connection(base_url):
+                if not base_url:
+                    return "❌ Please enter a base URL"
+                try:
+                    import httpx
+
+                    response = httpx.get(
+                        f"{base_url.rstrip('/')}/models",
+                        timeout=10,
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        return f"✅ Connected to {base_url}"
+                    return f"⚠️ HTTP {response.status_code}"
+                except Exception as e:
+                    return f"❌ {str(e)}"
+
+            openrouter_status = gr.Textbox(
+                label="OpenRouter Status",
+                interactive=False,
+                value="",
+            )
+            gr.Button("Test OpenRouter").click(
+                fn=check_openrouter_connection,
+                inputs=openrouter_key_input,
+                outputs=openrouter_status,
+            )
+
+            openai_status = gr.Textbox(
+                label="OpenAI-Compatible Status",
+                interactive=False,
+                value="",
+            )
+            gr.Button("Test OpenAI").click(
+                fn=check_openai_connection,
+                inputs=openai_url_input,
+                outputs=openai_status,
+            )
+
+            def save_provider_config(
+                openrouter_en, openrouter_key, openai_en, openai_url
+            ):
+                config = load_model_config()
+                if "providers" not in config:
+                    config["providers"] = {}
+
+                config["providers"]["openrouter"] = {
+                    "enabled": openrouter_en,
+                    "api_key": openrouter_key,
+                }
+                config["providers"]["openai_compatible"] = {
+                    "enabled": openai_en,
+                    "base_url": openai_url,
+                }
+
+                success = save_model_config(config)
+                return {"saved": success, "providers": config.get("providers", {})}
+
+            save_providers_btn = gr.Button(
+                "💾 Save Provider Config", variant="secondary"
+            )
+            provider_output = gr.JSON(label="Provider Status")
+            save_providers_btn.click(
+                fn=save_provider_config,
+                inputs=[
+                    openrouter_enabled,
+                    openrouter_key_input,
+                    openai_enabled,
+                    openai_url_input,
+                ],
+                outputs=provider_output,
+            )
+
             gr.Markdown("### 🤖 Orchestrator Model")
             gr.Markdown(
                 "The 'brain' that decides which crew to use and how to complete tasks."
@@ -234,10 +363,11 @@ def create_dashboard() -> gr.Blocks:
             with gr.Row():
                 orchestrator_dropdown = gr.Dropdown(
                     label="Orchestrator (Planning & Decisions)",
-                    choices=available_models,
-                    value=assignments.get("orchestrator", {}).get(
-                        "decision", "qwen3:14b"
+                    choices=model_choices,
+                    value=add_provider_prefix(
+                        assignments.get("orchestrator", {}).get("decision", "qwen3:14b")
                     ),
+                    allow_custom_value=True,
                 )
 
             gr.Markdown("### 👥 Crew Models")
@@ -260,42 +390,48 @@ def create_dashboard() -> gr.Blocks:
                     or crew_agents.get("content_creator")
                     or "qwen3:14b"
                 )
-                crew_model_configs[crew_name] = default_model
+                crew_model_configs[crew_name] = add_provider_prefix(default_model)
 
             with gr.Row():
                 research_model = gr.Dropdown(
                     label="Research Crew (Web search, fact-checking)",
-                    choices=available_models,
-                    value=crew_model_configs.get("Research", "qwen3:14b"),
+                    choices=model_choices,
+                    value=crew_model_configs.get("Research", "ollama:qwen3:14b"),
+                    allow_custom_value=True,
                 )
                 github_model = gr.Dropdown(
                     label="GitHub Crew (Repo analysis, code review)",
-                    choices=available_models,
-                    value=crew_model_configs.get("GitHub", "qwen3:14b"),
+                    choices=model_choices,
+                    value=crew_model_configs.get("GitHub", "ollama:qwen3:14b"),
+                    allow_custom_value=True,
                 )
 
             with gr.Row():
                 social_model = gr.Dropdown(
                     label="Social Crew (Content creation)",
-                    choices=available_models,
-                    value=crew_model_configs.get("Social", "llama3.1:8b"),
+                    choices=model_choices,
+                    value=crew_model_configs.get("Social", "ollama:llama3.1:8b"),
+                    allow_custom_value=True,
                 )
                 analysis_model = gr.Dropdown(
                     label="Analysis Crew (Data analysis)",
-                    choices=available_models,
-                    value=crew_model_configs.get("Analysis", "gemma3:12b"),
+                    choices=model_choices,
+                    value=crew_model_configs.get("Analysis", "ollama:gemma3:12b"),
+                    allow_custom_value=True,
                 )
 
             with gr.Row():
                 writing_model = gr.Dropdown(
                     label="Writing Crew (Articles, docs)",
-                    choices=available_models,
-                    value=crew_model_configs.get("Writing", "gemma3:12b"),
+                    choices=model_choices,
+                    value=crew_model_configs.get("Writing", "ollama:gemma3:12b"),
+                    allow_custom_value=True,
                 )
                 coding_model = gr.Dropdown(
                     label="Coding Crew (Code generation)",
-                    choices=available_models,
-                    value=crew_model_configs.get("Coding", "qwen2.5-coder:14b"),
+                    choices=model_choices,
+                    value=crew_model_configs.get("Coding", "ollama:qwen2.5-coder:14b"),
+                    allow_custom_value=True,
                 )
 
             gr.Markdown("### Current Settings")
@@ -325,8 +461,8 @@ def create_dashboard() -> gr.Blocks:
                     config["assignments"] = {}
 
                 config["assignments"]["orchestrator"] = {
-                    "decision": orch,
-                    "query_analyzer": orch,
+                    "decision": strip_provider_prefix(orch),
+                    "query_analyzer": strip_provider_prefix(orch),
                 }
 
                 if "departments" not in config["assignments"]:
@@ -334,51 +470,51 @@ def create_dashboard() -> gr.Blocks:
 
                 crew_configs = {
                     "research": {
-                        "manager": research,
+                        "manager": strip_provider_prefix(research),
                         "agents": {
-                            "web_researcher": research,
-                            "content_analyzer": research,
+                            "web_researcher": strip_provider_prefix(research),
+                            "content_analyzer": strip_provider_prefix(research),
                             "fact_checker": "llama3.1:8b",
                         },
                     },
                     "github": {
-                        "manager": github,
+                        "manager": strip_provider_prefix(github),
                         "agents": {
-                            "researcher": github,
-                            "code_analyst": github,
+                            "researcher": strip_provider_prefix(github),
+                            "code_analyst": strip_provider_prefix(github),
                             "gist_creator": "qwen2.5-coder:14b",
                         },
                     },
                     "social": {
-                        "manager": social,
+                        "manager": strip_provider_prefix(social),
                         "agents": {
-                            "content_creator": social,
-                            "engagement_optimizer": social,
+                            "content_creator": strip_provider_prefix(social),
+                            "engagement_optimizer": strip_provider_prefix(social),
                             "analytics_monitor": "gemma3:12b",
                         },
                     },
                     "analysis": {
-                        "manager": analysis,
+                        "manager": strip_provider_prefix(analysis),
                         "agents": {
-                            "data_analyst": analysis,
-                            "insight_generator": analysis,
+                            "data_analyst": strip_provider_prefix(analysis),
+                            "insight_generator": strip_provider_prefix(analysis),
                             "report_creator": "llama3.1:8b",
                         },
                     },
                     "writing": {
-                        "manager": writing,
+                        "manager": strip_provider_prefix(writing),
                         "agents": {
-                            "editorial": writing,
-                            "longform": writing,
+                            "editorial": strip_provider_prefix(writing),
+                            "longform": strip_provider_prefix(writing),
                             "social_media": "llama3.1:8b",
                         },
                     },
                     "coding": {
-                        "manager": coding,
+                        "manager": strip_provider_prefix(coding),
                         "agents": {
-                            "generator": coding,
-                            "refactorer": coding,
-                            "architect": coding,
+                            "generator": strip_provider_prefix(coding),
+                            "refactorer": strip_provider_prefix(coding),
+                            "architect": strip_provider_prefix(coding),
                         },
                     },
                 }
@@ -389,14 +525,14 @@ def create_dashboard() -> gr.Blocks:
 
                 return {
                     "saved": success,
-                    "orchestrator": orch,
+                    "orchestrator": strip_provider_prefix(orch),
                     "crews": {
-                        "research": research,
-                        "github": github,
-                        "social": social,
-                        "analysis": analysis,
-                        "writing": writing,
-                        "coding": coding,
+                        "research": strip_provider_prefix(research),
+                        "github": strip_provider_prefix(github),
+                        "social": strip_provider_prefix(social),
+                        "analysis": strip_provider_prefix(analysis),
+                        "writing": strip_provider_prefix(writing),
+                        "coding": strip_provider_prefix(coding),
                     },
                 }
 
