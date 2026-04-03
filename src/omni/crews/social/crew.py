@@ -114,9 +114,14 @@ class SocialCrew(BaseCrew):
         try:
             output = self.output_schema.model_validate(result)
             return output.model_dump()
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                "Could not parse result as SocialContentOutput", error=str(e)
+            )
             return {
                 "contents": {"default": str(result)},
                 "platform_metadata": {},
                 "hashtags": [],
+                "optimal_timing": None,
+                "engagement_predictions": {},
             }

@@ -6,6 +6,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from omni.core.config import get_settings
 from omni.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -17,8 +18,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     Handles startup and shutdown events.
     """
+    from omni.db.engine import close_engine
+
     logger.info("Starting OMNI API")
     yield
+    await close_engine()
     logger.info("Shutting down OMNI API")
 
 
@@ -28,6 +32,8 @@ def create_app() -> FastAPI:
     Returns:
         Configured FastAPI application
     """
+    settings = get_settings()
+
     app = FastAPI(
         title="OMNI API",
         description="Multi-agent orchestration system API",
@@ -37,7 +43,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.security.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

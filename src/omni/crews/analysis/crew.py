@@ -87,11 +87,13 @@ class AnalysisCrew(BaseCrew):
         try:
             output = self.output_schema.model_validate(result)
             return output.model_dump()
-        except Exception:
+        except Exception as e:
+            logger.warning("Could not parse result as AnalysisReport", error=str(e))
             return {
                 "summary": str(result),
                 "findings": [],
                 "insights": [],
                 "recommendations": [],
                 "visualizations": [],
+                "data_summary": "",
             }

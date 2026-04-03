@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from omni.core.config import get_settings
-from omni.core.exceptions import ConnectionError, DatabaseError
+from omni.core.exceptions import DBConnectionError, DatabaseError
 from omni.core.logging import get_db_logger
 
 logger = get_db_logger()
@@ -73,7 +73,7 @@ def create_engine() -> AsyncEngine:
 
     except Exception as e:
         logger.error("Failed to create database engine", error=str(e))
-        raise ConnectionError(
+        raise DBConnectionError(
             f"Failed to create database engine: {e}",
             details={"url": db_url},
         )

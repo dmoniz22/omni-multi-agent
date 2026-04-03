@@ -12,6 +12,8 @@ from omni.core.logging import get_logger
 from omni.crews.base import BaseCrew
 from omni.crews.writing.agents import WritingAgents
 
+logger = get_logger(__name__)
+
 
 class WritingTaskInput(BaseModel):
     topic: str
@@ -81,5 +83,12 @@ class WritingCrew(BaseCrew):
         try:
             output = self.output_schema.model_validate(result)
             return output.model_dump()
-        except Exception:
-            return {"content": str(result), "title": "", "word_count": 0}
+        except Exception as e:
+            logger.warning("Could not parse result as WritingOutput", error=str(e))
+            return {
+                "content": str(result),
+                "title": "",
+                "content_type": "",
+                "word_count": 0,
+                "style": "",
+            }

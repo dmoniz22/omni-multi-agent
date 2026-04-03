@@ -192,10 +192,14 @@ class DoCrew(BaseCrew):
             return report.model_dump()
         except Exception as e:
             logger.warning("Could not parse result as DoTaskResult", error=str(e))
+            result_str = (
+                result.get("raw_output", str(result))
+                if isinstance(result, dict)
+                else str(result)
+            )
             return {
                 "success": True,
                 "steps_executed": 0,
-                "summary": result.get("raw_output", str(result)),
+                "summary": result_str,
                 "errors": [],
-                "raw_output": result,
             }

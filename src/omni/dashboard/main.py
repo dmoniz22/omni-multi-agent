@@ -635,53 +635,6 @@ def create_dashboard() -> gr.Blocks:
                 },
             }
 
-            # Default params for each action
-            default_params = {
-                "calculator": {
-                    "calculate": '{"expression": "2 + 2"}',
-                    "convert": '{"value": 100, "from_unit": "c", "to_unit": "f"}',
-                },
-                "file": {
-                    "read": '{"path": "test.txt"}',
-                    "write": '{"path": "test.txt", "content": "Hello World"}',
-                    "list_dir": '{"path": "."}',
-                },
-                "search": {
-                    "web_search": '{"query": "AI news", "num_results": 5}',
-                    "news_search": '{"query": "technology"}',
-                },
-                "browser": {
-                    "navigate": '{"url": "https://example.com"}',
-                    "scrape": '{"url": "https://example.com"}',
-                },
-                "github": {
-                    "search_repos": '{"query": "python ai"}',
-                    "get_repo": '{"owner": "microsoft", "repo": "TypeScript"}',
-                },
-                "computer": {  # OpenClaw defaults
-                    "move_mouse": '{"x": 100, "y": 200, "duration": 0.5}',
-                    "click_mouse": '{"x": 100, "y": 200, "button": "left"}',
-                    "type_text": '{"text": "Hello World"}',
-                    "press_key": '{"key": "enter", "presses": 1}',
-                    "hotkey": '{"keys": ["ctrl", "c"]}',
-                    "scroll_mouse": '{"clicks": 3}',
-                    "get_screen_size": "{}",
-                    "get_mouse_position": "{}",
-                },
-                "screenshot": {  # OpenClaw defaults
-                    "capture_screen": '{"region": null}',
-                    "capture_window": '{"title": ""}',
-                    "analyze_screen": '{"prompt": "What do you see on screen?"}',
-                    "get_windows": "{}",
-                },
-                "shell": {  # OpenClaw defaults
-                    "run_command": '{"command": "ls -la", "timeout": 30}',
-                    "run_script": '{"script": "echo Hello", "language": "bash"}',
-                    "get_processes": '{"filter": null}',
-                    "kill_process": '{"pid": 1234, "force": false}',
-                },
-            }
-
             def update_actions(skill_name):
                 actions = skill_actions.get(skill_name, [])
                 default_p = (

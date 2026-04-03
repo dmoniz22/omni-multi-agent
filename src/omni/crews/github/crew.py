@@ -175,11 +175,12 @@ class GitHubCrew(BaseCrew):
             logger.info("GitHub task completed", success=output.success)
             return output.model_dump()
         except Exception as e:
-            logger.warning("Could not parse result, returning raw")
+            logger.warning("Could not parse result, returning raw", error=str(e))
             return {
                 "success": True,
                 "analysis": str(result),
                 "code_snippets": [],
                 "recommendations": [],
                 "gist_urls": [],
+                "error": None,
             }

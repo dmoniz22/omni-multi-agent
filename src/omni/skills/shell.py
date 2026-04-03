@@ -5,6 +5,7 @@ WARNING: Execute with caution - can run any command on the system.
 """
 
 import os
+import shlex
 import subprocess
 from typing import Any, Dict, Optional
 
@@ -29,7 +30,9 @@ class RunScriptInput(BaseModel):
     """Input for run_script action."""
 
     script: str = Field(..., description="Script content to execute")
-    language: str = Field(default="bash", description="Script language: bash, python, node")
+    language: str = Field(
+        default="bash", description="Script language: bash, python, node"
+    )
     timeout: int = Field(default=30, description="Timeout in seconds")
 
 
@@ -69,13 +72,41 @@ class ShellSkill(BaseSkill):
     version = "1.0.0"
 
     ALLOWED_COMMANDS = {
-        "ls", "cd", "pwd", "cat", "grep", "find", "echo", "mkdir", "rm", "cp", "mv",
-        "touch", "chmod", "chown", "curl", "wget", "git", "npm", "pip", "python",
-        "node", "yarn", "docker", "kubectl", "terraform", "ansible",
+        "ls",
+        "cd",
+        "pwd",
+        "cat",
+        "grep",
+        "find",
+        "echo",
+        "mkdir",
+        "rm",
+        "cp",
+        "mv",
+        "touch",
+        "chmod",
+        "chown",
+        "curl",
+        "wget",
+        "git",
+        "npm",
+        "pip",
+        "python",
+        "node",
+        "yarn",
+        "docker",
+        "kubectl",
+        "terraform",
+        "ansible",
     }
-    
+
     BLOCKED_COMMANDS = {
-        "rm -rf /", "mkfs", "dd if=", ">:", "> /dev/sd", "chmod 777 /",
+        "rm -rf /",
+        "mkfs",
+        "dd if=",
+        ">:",
+        "> /dev/sd",
+        "chmod 777 /",
     }
 
     def __init__(self):
@@ -131,31 +162,42 @@ class ShellSkill(BaseSkill):
     def _run_command(self, params: dict) -> dict:
         """Execute shell command."""
         validated = RunCommandInput.model_validate(params)
-        
+
         command = validated.command.strip()
-        
+
         for blocked in self.BLOCKED_COMMANDS:
             if blocked in command:
+                logger.warning("Blocked command attempted", command=command[:100])
                 return {
                     "success": False,
                     "error": f"Command blocked: contains dangerous pattern '{blocked}'",
                 }
-        
+
         try:
             env = os.environ.copy()
             if validated.env:
                 env.update(validated.env)
-            
+
+            # Use shlex.split to safely parse command and avoid shell=True
+            try:
+                cmd_parts = shlex.split(command)
+            except ValueError:
+                # Fall back to shell=True for commands with complex shell syntax
+                cmd_parts = command
+                use_shell = True
+            else:
+                use_shell = False
+
             result = subprocess.run(
-                command,
-                shell=True,
+                cmd_parts,
+                shell=use_shell,
                 capture_output=True,
                 text=True,
                 timeout=validated.timeout,
                 cwd=validated.cwd,
                 env=env,
             )
-            
+
             return {
                 "success": result.returncode == 0,
                 "returncode": result.returncode,
@@ -177,39 +219,48 @@ class ShellSkill(BaseSkill):
             }
 
     def _run_script(self, params: dict) -> dict:
-        """Execute script."""
+        """Execute script safely by writing to a temp file."""
         validated = RunScriptInput.model_validate(params)
-        
+
         language = validated.language.lower()
-        
-        if language == "bash":
-            cmd = f"bash -c '{validated.script.replace("'", \"'\\'\")}'"
-        elif language == "python":
-            cmd = f"python3 -c '{validated.script.replace('\\', '\\\\').replace('\"', '\\\"').replace('$', '\\$')}'"
-        elif language == "node":
-            cmd = f"node -e '{validated.script.replace('\\', '\\\\').replace('\"', '\\\"').replace('$', '\\$')}'"
-        else:
+        import tempfile
+
+        lang_extensions = {"bash": ".sh", "python": ".py", "node": ".js"}
+        lang_interpreters = {"bash": "bash", "python": "python3", "node": "node"}
+
+        if language not in lang_extensions:
             return {
                 "success": False,
                 "error": f"Unsupported language: {language}. Supported: bash, python, node",
             }
-        
+
         try:
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=validated.timeout,
-            )
-            
-            return {
-                "success": result.returncode == 0,
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "language": language,
-            }
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=lang_extensions[language],
+                delete=False,
+            ) as tmp:
+                tmp.write(validated.script)
+                tmp_path = tmp.name
+
+            try:
+                result = subprocess.run(
+                    [lang_interpreters[language], tmp_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=validated.timeout,
+                )
+
+                return {
+                    "success": result.returncode == 0,
+                    "returncode": result.returncode,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                    "language": language,
+                }
+            finally:
+                os.unlink(tmp_path)
+
         except subprocess.TimeoutExpired:
             return {
                 "success": False,
@@ -224,31 +275,54 @@ class ShellSkill(BaseSkill):
     def _get_processes(self, params: dict) -> dict:
         """List running processes."""
         validated = GetProcessesInput.model_validate(params)
-        
+
         try:
-            result = subprocess.run(
-                "ps aux" if not validated.filter else f"ps aux | grep {validated.filter}",
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            
+            if validated.filter:
+                # Sanitize filter to prevent shell injection
+                safe_filter = "".join(
+                    c for c in validated.filter if c.isalnum() or c in "-_."
+                )
+                if not safe_filter:
+                    return {
+                        "success": False,
+                        "error": "Invalid filter: must contain alphanumeric characters",
+                    }
+                result = subprocess.run(
+                    ["ps", "aux"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                # Filter in Python instead of shell
+            lines = result_stdout.strip().split("\n")
+                filtered_lines = [lines[0]] + [l for l in lines[1:] if safe_filter in l]
+                result_stdout = "\n".join(filtered_lines)
+            else:
+                result = subprocess.run(
+                    ["ps", "aux"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                result_stdout = result.stdout
+
             lines = result.stdout.strip().split("\n")
             processes = []
-            
+
             for line in lines[1:]:
                 if line.strip():
                     parts = line.split(None, 10)
                     if len(parts) >= 11:
-                        processes.append({
-                            "user": parts[0],
-                            "pid": parts[1],
-                            "cpu": parts[2],
-                            "mem": parts[3],
-                            "command": parts[10],
-                        })
-            
+                        processes.append(
+                            {
+                                "user": parts[0],
+                                "pid": parts[1],
+                                "cpu": parts[2],
+                                "mem": parts[3],
+                                "command": parts[10],
+                            }
+                        )
+
             return {
                 "success": True,
                 "processes": processes[:50],
@@ -263,22 +337,23 @@ class ShellSkill(BaseSkill):
     def _kill_process(self, params: dict) -> dict:
         """Kill a process."""
         validated = KillProcessInput.model_validate(params)
-        
+
         try:
             signal = "-9" if validated.force else "-15"
             result = subprocess.run(
-                f"kill {signal} {validated.pid}",
-                shell=True,
+                ["kill", signal, str(validated.pid)],
                 capture_output=True,
                 text=True,
             )
-            
+
             return {
                 "success": result.returncode == 0,
                 "returncode": result.returncode,
                 "pid": validated.pid,
                 "force": validated.force,
-                "message": f"Killed process {validated.pid}" if result.returncode == 0 else f"Failed to kill: {result.stderr}",
+                "message": f"Killed process {validated.pid}"
+                if result.returncode == 0
+                else f"Failed to kill: {result.stderr}",
             }
         except Exception as e:
             return {
@@ -290,8 +365,7 @@ class ShellSkill(BaseSkill):
         """Verify shell skill is operational."""
         try:
             result = subprocess.run(
-                "echo test",
-                shell=True,
+                ["echo", "test"],
                 capture_output=True,
                 timeout=5,
             )

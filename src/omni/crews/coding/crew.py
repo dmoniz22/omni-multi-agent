@@ -12,6 +12,8 @@ from omni.core.logging import get_logger
 from omni.crews.base import BaseCrew
 from omni.crews.coding.agents import CodingAgents
 
+logger = get_logger(__name__)
+
 
 class CodingTaskInput(BaseModel):
     task: str
@@ -78,10 +80,12 @@ class CodingCrew(BaseCrew):
         try:
             output = self.output_schema.model_validate(result)
             return output.model_dump()
-        except Exception:
+        except Exception as e:
+            logger.warning("Could not parse result as CodingOutput", error=str(e))
             return {
                 "success": True,
                 "code": str(result),
                 "explanation": "",
+                "tests": None,
                 "files_created": [],
             }

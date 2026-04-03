@@ -4,12 +4,9 @@ Defines the agents for the Do (Executor) department that can execute
 computer tasks using available skills.
 """
 
-from typing import List
-
 from crewai import Agent
 
 from omni.core.logging import get_logger
-from omni.core.config import get_settings
 
 logger = get_logger(__name__)
 
@@ -21,17 +18,13 @@ class DoAgents:
     mouse, keyboard, shell, and other automation skills.
     """
 
-    def __init__(self):
-        """Initialize the agents factory."""
-        self.settings = get_settings()
-
-    def _create_llm(self, model: str, temperature: float = 0.7) -> str:
+    def _create_llm(self, model: str) -> str:
         """Create a CrewAI LLM identifier for Ollama."""
         return f"ollama/{model}"
 
     def create_planner_agent(self) -> Agent:
         """Create the Planner agent - breaks down tasks into steps."""
-        llm = self._create_llm("qwen3:14b", temperature=0.7)
+        llm = self._create_llm("qwen3:14b")
 
         return Agent(
             role="Planner",
@@ -48,7 +41,7 @@ class DoAgents:
 
     def create_executor_agent(self) -> Agent:
         """Create the Executor agent - executes actions using skills."""
-        llm = self._create_llm("qwen3:14b", temperature=0.3)
+        llm = self._create_llm("qwen3:14b")
 
         return Agent(
             role="Executor",
@@ -65,7 +58,7 @@ class DoAgents:
 
     def create_verifier_agent(self) -> Agent:
         """Create the Verifier agent - verifies task completion."""
-        llm = self._create_llm("gemma3:12b", temperature=0.5)
+        llm = self._create_llm("gemma3:12b")
 
         return Agent(
             role="Verifier",
@@ -79,7 +72,7 @@ class DoAgents:
             llm=llm,
         )
 
-    def create_all(self) -> List[Agent]:
+    def create_all(self) -> list[Agent]:
         """Create all Do department agents."""
         agents = [
             self.create_planner_agent(),

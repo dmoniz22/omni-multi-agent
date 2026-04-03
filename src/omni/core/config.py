@@ -4,9 +4,10 @@ Loads configuration from YAML files and environment variables.
 Uses Pydantic Settings with custom YAML source.
 """
 
-import os
+import logging
+import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import yaml
 from pydantic import Field
@@ -26,34 +27,46 @@ from omni.core.constants import (
     DEFAULT_TIMEOUT_SECONDS,
 )
 
+_settings_lock = threading.Lock()
+logger = logging.getLogger(__name__)
+
 
 class YamlConfigSource(PydanticBaseSettingsSource):
-    """Custom settings source that loads from YAML files."""
+    """Custom settings source that loads from YAML files with caching."""
 
-    def __init__(self, settings_cls: type, yaml_files: List[Path]):
+    def __init__(self, settings_cls: type, yaml_files: list[Path]):
         super().__init__(settings_cls)
         self.yaml_files = yaml_files
+        self._cached_data: Optional[dict[str, Any]] = None
 
-    def get_field_value(self, field: Field, field_name: str) -> tuple[Any, str, bool]:
-        """Get field value from YAML files."""
-        for yaml_file in self.yaml_files:
-            if yaml_file.exists():
-                with open(yaml_file, "r") as f:
-                    data = yaml.safe_load(f)
-                    if data and field_name in data:
-                        return data[field_name], field_name, False
-        return None, field_name, False
+    def _load_all(self) -> dict[str, Any]:
+        """Load and cache all YAML data."""
+        if self._cached_data is not None:
+            return self._cached_data
 
-    def __call__(self) -> Dict[str, Any]:
-        """Load all settings from YAML files."""
         result = {}
         for yaml_file in self.yaml_files:
             if yaml_file.exists():
-                with open(yaml_file, "r") as f:
-                    data = yaml.safe_load(f)
-                    if data:
-                        result.update(data)
+                try:
+                    with open(yaml_file, "r") as f:
+                        data = yaml.safe_load(f)
+                        if data:
+                            result.update(data)
+                except yaml.YAMLError as e:
+                    logger.warning("Failed to parse YAML file %s: %s", yaml_file, e)
+        self._cached_data = result
         return result
+
+    def get_field_value(self, field: Field, field_name: str) -> tuple[Any, str, bool]:
+        """Get field value from cached YAML data."""
+        data = self._load_all()
+        if field_name in data:
+            return data[field_name], field_name, False
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        """Return all settings from YAML files."""
+        return self._load_all()
 
 
 class LoggingSettings(BaseSettings):
@@ -63,7 +76,7 @@ class LoggingSettings(BaseSettings):
 
     level: str = "INFO"
     format: str = "json"
-    component_levels: Dict[str, str] = Field(default_factory=dict)
+    component_levels: dict[str, str] = Field(default_factory=dict)
 
 
 class OrchestratorSettings(BaseSettings):
@@ -83,7 +96,7 @@ class HITLSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     enabled: bool = True
-    require_confirmation_for: List[str] = Field(
+    require_confirmation_for: list[str] = Field(
         default_factory=lambda: [
             "destructive_operations",
             "external_api_calls",
@@ -131,7 +144,7 @@ class SecuritySettings(BaseSettings):
     jwt_secret: str = Field(default="change-me-in-production", alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_expiration_hours: int = 24
-    cors_origins: List[str] = Field(
+    cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:7860",
             "http://localhost:3000",
@@ -248,19 +261,26 @@ _settings: Optional[Settings] = None
 
 
 def get_settings() -> Settings:
-    """Get the global settings instance.
+    """Get the global settings instance (thread-safe).
 
     Returns:
         Settings: The configured settings instance.
     """
     global _settings
     if _settings is None:
-        _settings = Settings()
+        with _settings_lock:
+            if _settings is None:
+                _settings = Settings()
+                if _settings.security.jwt_secret == "change-me-in-production":
+                    logger.warning(
+                        "JWT secret is using default value. "
+                        "Set JWT_SECRET_KEY environment variable for production."
+                    )
     return _settings
 
 
 def reload_settings() -> Settings:
-    """Reload settings from disk.
+    """Reload settings from disk (thread-safe).
 
     Useful when configuration files have been modified.
 
@@ -268,5 +288,6 @@ def reload_settings() -> Settings:
         Settings: The reloaded settings instance.
     """
     global _settings
-    _settings = Settings()
+    with _settings_lock:
+        _settings = Settings()
     return _settings

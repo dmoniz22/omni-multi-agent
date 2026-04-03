@@ -9,13 +9,10 @@ Agents:
     - Fact Checker: Verifies claims and cross-references sources
 """
 
-from typing import List, Optional
-
 from crewai import Agent
 from crewai.tools import tool
 
 from omni.core.logging import get_logger
-from omni.core.config import get_settings
 
 logger = get_logger(__name__)
 
@@ -68,18 +65,13 @@ class ResearchAgents:
         agents = factory.create_all()
     """
 
-    def __init__(self):
-        """Initialize the agents factory."""
-        self.settings = get_settings()
-        self.base_url = self.settings.ollama.base_url
-
-    def _create_llm(self, model: str, temperature: float = 0.7) -> str:
+    def _create_llm(self, model: str) -> str:
         """Create a CrewAI LLM identifier for Ollama."""
         return f"ollama/{model}"
 
     def create_web_researcher(self) -> Agent:
         """Create the Web Researcher agent."""
-        llm = self._create_llm("gemma3:12b", temperature=0.7)
+        llm = self._create_llm("gemma3:12b")
 
         return Agent(
             role="Web Researcher",
@@ -98,7 +90,7 @@ class ResearchAgents:
 
     def create_content_analyzer(self) -> Agent:
         """Create the Content Analyzer agent."""
-        llm = self._create_llm("gemma3:12b", temperature=0.6)
+        llm = self._create_llm("gemma3:12b")
 
         return Agent(
             role="Content Analyzer",
@@ -116,7 +108,7 @@ class ResearchAgents:
 
     def create_fact_checker(self) -> Agent:
         """Create the Fact Checker agent."""
-        llm = self._create_llm("llama3.1:8b", temperature=0.3)
+        llm = self._create_llm("llama3.1:8b")
 
         return Agent(
             role="Fact Checker",
@@ -133,7 +125,7 @@ class ResearchAgents:
             llm=llm,
         )
 
-    def create_all(self) -> List[Agent]:
+    def create_all(self) -> list[Agent]:
         """Create all Research department agents."""
         agents = [
             self.create_web_researcher(),
