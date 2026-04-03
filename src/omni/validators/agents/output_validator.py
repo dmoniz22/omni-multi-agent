@@ -1,85 +1,58 @@
 """Output validator agent.
 
 Validates crew output data against output schemas.
+
+.. deprecated::
+    Use :class:`omni.validators.agents.schema_validator.SchemaValidator` instead.
+    This module is kept for backward compatibility.
 """
 
-from typing import Any, Dict, Type
+from typing import Any
 
 from pydantic import BaseModel
 
-from omni.core.logging import get_logger
-from omni.validators.base import BaseValidator
+from omni.validators.agents.schema_validator import get_output_validator
 from omni.validators.schemas.common import ValidatedResult
 
-logger = get_logger(__name__)
+OutputValidator = get_output_validator()
 
 
-class OutputValidator:
-    """Validator for crew output data.
+def validate_output(
+    data: dict[str, Any],
+    schema: type[BaseModel],
+    crew_name: str,
+) -> ValidatedResult:
+    """Validate output data from a crew.
 
-    Validates output data from a crew against the appropriate
-    output schema before merging into state.
+    Args:
+        data: Output data to validate
+        schema: Pydantic schema class
+        crew_name: Name of the crew (for logging)
+
+    Returns:
+        ValidatedResult with validation status
     """
+    return OutputValidator.validate(data, schema, context=f"output:{crew_name}")
 
-    def __init__(self):
-        """Initialize the output validator."""
-        self.validator = BaseValidator()
 
-    def validate_output(
-        self,
-        data: Dict[str, Any],
-        schema: Type[BaseModel],
-        crew_name: str,
-    ) -> ValidatedResult:
-        """Validate output data from a crew.
+def validate_output_or_raise(
+    data: dict[str, Any],
+    schema: type[BaseModel],
+    crew_name: str,
+) -> dict[str, Any]:
+    """Validate and raise on failure.
 
-        Args:
-            data: Output data to validate
-            schema: Pydantic schema class
-            crew_name: Name of the crew (for logging)
+    Args:
+        data: Output data to validate
+        schema: Pydantic schema class
+        crew_name: Name of the crew
 
-        Returns:
-            ValidatedResult with validation status
-        """
-        logger.info(
-            "Validating crew output",
-            crew=crew_name,
-            schema=schema.__name__,
-        )
+    Returns:
+        Validated data dict
 
-        result = self.validator.validate(data, schema, schema_name=schema.__name__)
-
-        if result.valid:
-            logger.info(
-                "Crew output validation passed",
-                crew=crew_name,
-            )
-        else:
-            logger.warning(
-                "Crew output validation failed",
-                crew=crew_name,
-                errors=result.errors,
-            )
-
-        return result
-
-    def validate_or_raise(
-        self,
-        data: Dict[str, Any],
-        schema: Type[BaseModel],
-        crew_name: str,
-    ) -> Dict[str, Any]:
-        """Validate and raise on failure.
-
-        Args:
-            data: Output data to validate
-            schema: Pydantic schema class
-            crew_name: Name of the crew
-
-        Returns:
-            Validated data dict
-
-        Raises:
-            ValidationError: If validation fails
-        """
-        return self.validator.validate_or_raise(data, schema, schema_name=crew_name)
+    Raises:
+        ValidationError: If validation fails
+    """
+    return OutputValidator.validate_or_raise(
+        data, schema, context=f"output:{crew_name}"
+    )

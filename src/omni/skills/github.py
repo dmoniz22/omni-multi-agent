@@ -355,4 +355,19 @@ class GitHubSkill(BaseSkill):
 
     def health_check(self) -> bool:
         """Verify GitHub skill is operational."""
-        return True
+        try:
+            import httpx
+
+            token = self.token or os.environ.get("GITHUB_TOKEN")
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            if token:
+                headers["Authorization"] = f"token {token}"
+            with httpx.Client() as client:
+                response = client.get(
+                    "https://api.github.com/rate_limit",
+                    headers=headers,
+                    timeout=10,
+                )
+                return response.status_code in (200, 403)
+        except Exception:
+            return False

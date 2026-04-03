@@ -1,17 +1,21 @@
 """Long-term memory using PostgreSQL with pgvector.
 
 Provides comprehensive memory storage and retrieval across sessions.
+Delegates to repository classes to avoid code duplication.
 """
 
-from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
-import uuid
+from typing import Any
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from omni.core.logging import get_logger
 from omni.db.engine import get_session
-from omni.db.models import Task, TaskStep, Session as DBSession, MemoryVector
+from omni.db.repositories.memory import MemoryRepository
+from omni.db.repositories.session import SessionRepository
+from omni.db.repositories.task import TaskRepository, TaskStepRepository
+from omni.db.models import Session as DBSession, Task, TaskStep, MemoryVector
 
 logger = get_logger(__name__)
 
@@ -19,19 +23,15 @@ logger = get_logger(__name__)
 class MemoryEntry(BaseModel):
     """A stored memory entry."""
 
-    id: Optional[str] = Field(default=None, description="Memory ID")
+    id: str | None = Field(default=None, description="Memory ID")
     session_id: str = Field(..., description="Session ID")
     content: str = Field(..., description="Memory content")
     memory_type: str = Field(default="task", description="Type: task, insight, context")
-    embedding: Optional[List[float]] = Field(
-        default=None, description="Vector embedding"
-    )
-    metadata: Dict[str, Any] = Field(
+    embedding: list[float] | None = Field(default=None, description="Vector embedding")
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
-    relevance_score: Optional[float] = Field(
-        default=None, description="Similarity score"
-    )
+    relevance_score: float | None = Field(default=None, description="Similarity score")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), description="Creation time"
     )
@@ -40,24 +40,24 @@ class MemoryEntry(BaseModel):
 class TaskEntry(BaseModel):
     """A stored task entry."""
 
-    id: Optional[str] = Field(default=None, description="Task ID")
+    id: str | None = Field(default=None, description="Task ID")
     session_id: str = Field(..., description="Session ID")
     original_task: str = Field(..., description="Original task description")
     status: str = Field(default="pending", description="Task status")
-    final_response: Optional[Dict] = Field(default=None, description="Final response")
-    execution_summary: Optional[Dict] = Field(
+    final_response: dict | None = Field(default=None, description="Final response")
+    execution_summary: dict | None = Field(
         default=None, description="Execution summary"
     )
     total_steps: int = Field(default=0, description="Total steps executed")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
 
 
 class LongTermMemory:
     """Manages long-term memory via PostgreSQL.
 
     Stores task summaries, insights, and context for retrieval
-    in future sessions.
+    in future sessions. Delegates to repository classes.
     """
 
     def __init__(
@@ -68,7 +68,7 @@ class LongTermMemory:
         """Initialize long-term memory."""
         self._vector_dimension = vector_dimension
         self._top_k = top_k
-        self._db_available = True  # Assume available if we're using sync operations
+        self._db_available = True
 
     @property
     def is_configured(self) -> bool:
@@ -80,21 +80,19 @@ class LongTermMemory:
         session_id: str,
         content: str,
         memory_type: str = "task",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Add a memory entry."""
         try:
             async with get_session() as session:
-                memory = MemoryVector(
-                    session_id=uuid.UUID(session_id),
+                repo = MemoryRepository(session)
+                memory = await repo.store(
+                    session_id=UUID(session_id),
                     content=content,
+                    embedding=[],  # LongTermMemory doesn't generate embeddings
                     memory_type=memory_type,
-                    metadata_json=metadata or {},
+                    metadata=metadata,
                 )
-                session.add(memory)
-                await session.flush()
-                await session.refresh(memory)
-
                 logger.debug("Added memory", session_id=session_id, type=memory_type)
                 return str(memory.id)
         except Exception as e:
@@ -104,31 +102,21 @@ class LongTermMemory:
     async def search_memories(
         self,
         query: str,
-        session_id: Optional[str] = None,
-        memory_type: Optional[str] = None,
-        top_k: Optional[int] = None,
-    ) -> List[MemoryEntry]:
+        session_id: str | None = None,
+        memory_type: str | None = None,
+        top_k: int | None = None,
+    ) -> list[MemoryEntry]:
         """Search memories by text similarity (simple contains search)."""
         try:
             async with get_session() as session:
-                from sqlalchemy import select, desc
-
-                stmt = select(MemoryVector).order_by(desc(MemoryVector.created_at))
-
-                if session_id:
-                    stmt = stmt.where(MemoryVector.session_id == uuid.UUID(session_id))
-
-                if memory_type:
-                    stmt = stmt.where(MemoryVector.memory_type == memory_type)
-
-                stmt = stmt.limit(top_k or self._top_k)
-
-                result = await session.execute(stmt)
-                memories = result.scalars().all()
-
-                # Simple text search
-                results = []
+                repo = MemoryRepository(session)
+                memories = await repo.list_by_session(
+                    session_id=UUID(session_id) if session_id else None,
+                    memory_type=memory_type,
+                    limit=top_k or self._top_k,
+                )
                 query_lower = query.lower()
+                results = []
                 for mem in memories:
                     if query_lower in mem.content.lower():
                         results.append(
@@ -142,7 +130,6 @@ class LongTermMemory:
                                 relevance_score=1.0,
                             )
                         )
-
                 return results
         except Exception as e:
             logger.error("Failed to search memories", error=str(e))
@@ -152,22 +139,15 @@ class LongTermMemory:
         self,
         session_id: str,
         limit: int = 50,
-    ) -> List[MemoryEntry]:
+    ) -> list[MemoryEntry]:
         """Get all memories for a session."""
         try:
             async with get_session() as session:
-                from sqlalchemy import select, desc
-
-                stmt = (
-                    select(MemoryVector)
-                    .where(MemoryVector.session_id == uuid.UUID(session_id))
-                    .order_by(desc(MemoryVector.created_at))
-                    .limit(limit)
+                repo = MemoryRepository(session)
+                memories = await repo.list_by_session(
+                    session_id=UUID(session_id),
+                    limit=limit,
                 )
-
-                result = await session.execute(stmt)
-                memories = result.scalars().all()
-
                 return [
                     MemoryEntry(
                         id=str(mem.id),
@@ -183,36 +163,28 @@ class LongTermMemory:
             logger.error("Failed to get session memories", error=str(e))
             return []
 
-    async def delete_session_memories(
-        self,
-        session_id: str,
-    ) -> int:
+    async def delete_session_memories(self, session_id: str) -> int:
         """Delete all memories for a session."""
         try:
             async with get_session() as session:
-                from sqlalchemy import delete
-
-                stmt = delete(MemoryVector).where(
-                    MemoryVector.session_id == uuid.UUID(session_id)
+                repo = MemoryRepository(session)
+                count = await repo.delete_by_session(UUID(session_id))
+                logger.debug(
+                    "Deleted session memories", session_id=session_id, count=count
                 )
-
-                result = await session.execute(stmt)
-
-                logger.debug("Deleted session memories", session_id=session_id)
-                return result.rowcount
+                return count
         except Exception as e:
             logger.error("Failed to delete session memories", error=str(e))
             return 0
 
-    async def cleanup_old_memories(
-        self,
-        days: int = 30,
-    ) -> int:
+    async def cleanup_old_memories(self, days: int = 30) -> int:
         """Clean up memories older than specified days."""
-        # Not implemented - would need to track created_at for cleanup
+        logger.warning(
+            "cleanup_old_memories not yet implemented - days parameter ignored"
+        )
         return 0
 
-    # ========== Task Persistence Methods ==========
+    # ========== Task Persistence Methods (delegate to repositories) ==========
 
     async def save_task(
         self,
@@ -224,17 +196,19 @@ class LongTermMemory:
         """Save a task to the database."""
         try:
             async with get_session() as session:
-                # Check if session exists
-                db_session = await session.get(DBSession, uuid.UUID(session_id))
+                session_repo = SessionRepository(session)
+                task_repo = TaskRepository(session)
+
+                # Ensure session exists
+                db_session = await session_repo.get(UUID(session_id))
                 if not db_session:
-                    # Create session if doesn't exist
-                    db_session = DBSession(id=uuid.UUID(session_id))
+                    db_session = DBSession(id=UUID(session_id))
                     session.add(db_session)
                     await session.flush()
 
                 task = Task(
-                    id=uuid.UUID(task_id),
-                    session_id=uuid.UUID(session_id),
+                    id=UUID(task_id),
+                    session_id=UUID(session_id),
                     original_task=original_task,
                     status=status,
                 )
@@ -250,44 +224,37 @@ class LongTermMemory:
     async def update_task(
         self,
         task_id: str,
-        status: Optional[str] = None,
-        final_response: Optional[Dict] = None,
-        execution_summary: Optional[Dict] = None,
+        status: str | None = None,
+        final_response: dict | None = None,
+        execution_summary: dict | None = None,
     ) -> bool:
         """Update a task."""
         try:
             async with get_session() as session:
-                task = await session.get(Task, uuid.UUID(task_id))
-                if not task:
+                repo = TaskRepository(session)
+                task = await repo.update(
+                    UUID(task_id),
+                    status=status,
+                    final_response=final_response,
+                    execution_summary=execution_summary,
+                )
+                if task is None:
                     logger.warning("Task not found", task_id=task_id)
                     return False
-
-                if status:
-                    task.status = status
-                    if status == "completed":
-                        task.completed_at = datetime.now(timezone.utc)
-                if final_response:
-                    task.final_response = final_response
-                if execution_summary:
-                    task.execution_summary = execution_summary
-
                 logger.info("Task updated", task_id=task_id, status=status)
                 return True
         except Exception as e:
             logger.error("Failed to update task", error=str(e))
             return False
 
-    async def get_task(
-        self,
-        task_id: str,
-    ) -> Optional[TaskEntry]:
+    async def get_task(self, task_id: str) -> TaskEntry | None:
         """Get a task by ID."""
         try:
             async with get_session() as session:
-                task = await session.get(Task, uuid.UUID(task_id))
+                repo = TaskRepository(session)
+                task = await repo.get(UUID(task_id))
                 if not task:
                     return None
-
                 return TaskEntry(
                     id=str(task.id),
                     session_id=str(task.session_id),
@@ -307,22 +274,12 @@ class LongTermMemory:
         self,
         session_id: str,
         limit: int = 50,
-    ) -> List[TaskEntry]:
+    ) -> list[TaskEntry]:
         """Get all tasks for a session."""
         try:
             async with get_session() as session:
-                from sqlalchemy import select, desc
-
-                stmt = (
-                    select(Task)
-                    .where(Task.session_id == uuid.UUID(session_id))
-                    .order_by(desc(Task.created_at))
-                    .limit(limit)
-                )
-
-                result = await session.execute(stmt)
-                tasks = result.scalars().all()
-
+                repo = TaskRepository(session)
+                tasks = await repo.list_by_session(UUID(session_id))
                 return [
                     TaskEntry(
                         id=str(t.id),
@@ -335,7 +292,7 @@ class LongTermMemory:
                         created_at=t.created_at,
                         completed_at=t.completed_at,
                     )
-                    for t in tasks
+                    for t in tasks[:limit]
                 ]
         except Exception as e:
             logger.error("Failed to get session tasks", error=str(e))
@@ -347,15 +304,16 @@ class LongTermMemory:
         step_number: int,
         step_type: str,
         node_name: str,
-        input_data: Optional[Dict] = None,
-        output_data: Optional[Dict] = None,
-        error: Optional[str] = None,
+        input_data: dict | None = None,
+        output_data: dict | None = None,
+        error: str | None = None,
     ) -> str:
         """Save a task step."""
         try:
             async with get_session() as session:
-                step = TaskStep(
-                    task_id=uuid.UUID(task_id),
+                repo = TaskStepRepository(session)
+                step = await repo.create(
+                    task_id=UUID(task_id),
                     step_number=step_number,
                     step_type=step_type,
                     node_name=node_name,
@@ -363,38 +321,17 @@ class LongTermMemory:
                     output_data=output_data,
                     error=error,
                 )
-                session.add(step)
-
-                # Update task step count
-                task = await session.get(Task, uuid.UUID(task_id))
-                if task:
-                    task.total_steps = max(task.total_steps, step_number)
-
-                await session.flush()
-
                 return str(step.id)
         except Exception as e:
             logger.error("Failed to save task step", error=str(e))
             return ""
 
-    async def get_task_steps(
-        self,
-        task_id: str,
-    ) -> List[Dict[str, Any]]:
+    async def get_task_steps(self, task_id: str) -> list[dict[str, Any]]:
         """Get all steps for a task."""
         try:
             async with get_session() as session:
-                from sqlalchemy import select
-
-                stmt = (
-                    select(TaskStep)
-                    .where(TaskStep.task_id == uuid.UUID(task_id))
-                    .order_by(TaskStep.step_number)
-                )
-
-                result = await session.execute(stmt)
-                steps = result.scalars().all()
-
+                repo = TaskStepRepository(session)
+                steps = await repo.list_by_task(UUID(task_id))
                 return [
                     {
                         "step_number": s.step_number,
@@ -414,7 +351,7 @@ class LongTermMemory:
             return []
 
 
-_long_term_memory: Optional[LongTermMemory] = None
+_long_term_memory: LongTermMemory | None = None
 
 
 def get_long_term_memory() -> LongTermMemory:

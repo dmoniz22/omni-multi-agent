@@ -232,4 +232,11 @@ class SearchSkill(BaseSkill):
 
     def health_check(self) -> bool:
         """Verify search is operational."""
-        return True
+        try:
+            from duckduckgo_search import DDGS
+
+            with DDGS() as ddgs:
+                list(ddgs.text("test", max_results=1))
+            return True
+        except Exception:
+            return False

@@ -1,111 +1,40 @@
 """Gradio dashboard for OMNI."""
 
-import gradio as gr
+import gr
 import json
 import os
-import yaml
-from pathlib import Path
 
 from omni.core.logging import get_logger
+from omni.dashboard.config import (
+    OLLAMA_URL,
+    CLOUD_MODELS,
+    get_available_models,
+    get_all_available_models,
+    load_model_config,
+    save_model_config,
+    get_crew_agents,
+)
 
 logger = get_logger(__name__)
 
-# Initialize database on module load
-try:
-    from omni.db.engine import init_db
-    import asyncio
-
-    asyncio.run(init_db())
-    logger.info("Database initialized for dashboard")
-except Exception as e:
-    logger.warning(f"Could not initialize database: {e}")
-
-MODELS_CONFIG_PATH = (
-    Path(__file__).parent.parent.parent.parent / "config" / "models.yaml"
-)
-
-OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-
-
-def get_available_models():
-    """Get available Ollama models."""
-    try:
-        import httpx
-
-        response = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            return [m["name"] for m in data.get("models", [])]
-    except Exception:
-        pass
-    return ["qwen3:14b", "llama3.1:8b", "gemma3:12b"]
-
-
-def get_all_available_models():
-    """Get all available models including cloud providers."""
-    models = []
-
-    # Get Ollama models
-    ollama_models = get_available_models()
-    for m in ollama_models:
-        models.append(f"ollama:{m}")
-
-    # Get cloud models from config
-    config = load_model_config()
-    providers = config.get("providers", {})
-
-    if providers.get("openai"):
-        models.extend(["openai:gpt-4o", "openai:gpt-4o-mini", "openai:o1"])
-
-    if providers.get("anthropic"):
-        models.extend(["anthropic:claude-3-5-sonnet", "anthropic:claude-3-haiku"])
-
-    return models
-
-
-CLOUD_MODELS = {
-    "openai": ["gpt-4o", "gpt-4o-mini", "o1", "o1-mini"],
-    "anthropic": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-haiku"],
-}
-
-
-def load_model_config():
-    """Load model configuration from YAML file."""
-    try:
-        if MODELS_CONFIG_PATH.exists():
-            with open(MODELS_CONFIG_PATH, "r") as f:
-                return yaml.safe_load(f)
-    except Exception as e:
-        logger.warning(f"Failed to load model config: {e}")
-    return {}
-
-
-def save_model_config(config):
-    """Save model configuration to YAML file."""
-    try:
-        with open(MODELS_CONFIG_PATH, "w") as f:
-            yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
-        return True
-    except Exception as e:
-        logger.warning(f"Failed to save model config: {e}")
-        return False
-
-
-def get_crew_agents(crew_name):
-    """Get agents for a specific crew."""
-    agents_map = {
-        "Research": ["web_researcher", "content_analyzer", "fact_checker"],
-        "GitHub": ["researcher", "code_analyst", "gist_creator"],
-        "Social": ["content_creator", "engagement_optimizer", "analytics_monitor"],
-        "Analysis": ["data_analyst", "insight_generator", "report_creator"],
-        "Writing": ["editorial", "longform", "social_media"],
-        "Coding": ["generator", "refactorer", "architect"],
-    }
-    return agents_map.get(crew_name, [])
+_db_initialized = False
 
 
 def create_dashboard() -> gr.Blocks:
     """Create the OMNI Gradio dashboard."""
+    global _db_initialized
+
+    # Initialize database lazily on first dashboard creation
+    if not _db_initialized:
+        try:
+            import asyncio
+            from omni.db.engine import init_db
+
+            asyncio.run(init_db())
+            _db_initialized = True
+            logger.info("Database initialized for dashboard")
+        except Exception as e:
+            logger.warning(f"Could not initialize database: {e}")
 
     with gr.Blocks(title="OMNI Dashboard") as dashboard:
         gr.Markdown("# OMNI Multi-Agent Orchestration System")

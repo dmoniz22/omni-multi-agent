@@ -1,7 +1,27 @@
-"""Validator agents for OMNI."""
+"""Validator agents for OMNI.
 
-from omni.validators.agents.input_validator import InputValidator
-from omni.validators.agents.output_validator import OutputValidator
-from omni.validators.agents.response_validator import ResponseValidator
+Provides validation for crew inputs, outputs, and final responses.
+Consolidated into SchemaValidator with backward-compatible aliases.
+"""
 
-__all__ = ["InputValidator", "OutputValidator", "ResponseValidator"]
+from omni.validators.agents.schema_validator import (
+    SchemaValidator,
+    get_input_validator,
+    get_output_validator,
+    get_response_validator,
+)
+
+# Backward-compatible aliases
+InputValidator = SchemaValidator
+OutputValidator = SchemaValidator
+ResponseValidator = SchemaValidator
+
+__all__ = [
+    "SchemaValidator",
+    "InputValidator",
+    "OutputValidator",
+    "ResponseValidator",
+    "get_input_validator",
+    "get_output_validator",
+    "get_response_validator",
+]

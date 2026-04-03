@@ -500,8 +500,12 @@ class BrowserSkill(BaseSkill):
         try:
             pw = self._get_playwright()
             if pw:
-                pw.chromium.launch(headless=True)
-                return True
+                browser = pw.chromium.launch(headless=True)
+                try:
+                    browser.close()
+                    return True
+                except Exception:
+                    return False
             return False
         except Exception:
             return False
