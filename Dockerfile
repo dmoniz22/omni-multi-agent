@@ -32,6 +32,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV API_PORT=8000
+ENV OLLAMA_BASE_URL=http://host.docker.internal:11434
+ENV OLLAMA_API_BASE=http://host.docker.internal:11434
+ENV LITELLM_HOST=http://host.docker.internal:11434
 
 EXPOSE 8000 7860
 

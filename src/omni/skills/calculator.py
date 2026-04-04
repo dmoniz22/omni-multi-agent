@@ -5,7 +5,7 @@ Uses sympy for safe expression evaluation (no eval()).
 """
 
 import re
-from typing import Any
+from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 

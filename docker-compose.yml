@@ -30,6 +30,8 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-omni_user}:${POSTGRES_PASSWORD:-omni_password}@postgres:5432/${POSTGRES_DB:-omni_db}
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434
+      - LITELLM_HOST=http://host.docker.internal:11434
       - API_PORT=8010
     ports:
       - "8010:8010"

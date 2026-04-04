@@ -5,7 +5,7 @@ Uses GitHub REST API v3.
 """
 
 import os
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 from pydantic import BaseModel, Field
 

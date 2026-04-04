@@ -7,7 +7,7 @@ Provides auto-discovery from the skills directory and dynamic skill lookup.
 import importlib
 import inspect
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 from omni.core.logging import get_logger
 from omni.skills.base import BaseSkill, SkillInfo

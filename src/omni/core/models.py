@@ -5,7 +5,7 @@ for different LLM providers, with caching and health checking.
 """
 
 import threading
-from typing import Optional
+from typing import Optional, Dict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama

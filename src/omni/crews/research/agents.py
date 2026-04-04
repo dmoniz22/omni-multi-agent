@@ -108,7 +108,7 @@ class ResearchAgents:
 
     def create_fact_checker(self) -> Agent:
         """Create the Fact Checker agent."""
-        llm = self._create_llm("llama3.1:8b")
+        llm = self._create_llm("gemma3:12b")
 
         return Agent(
             role="Fact Checker",

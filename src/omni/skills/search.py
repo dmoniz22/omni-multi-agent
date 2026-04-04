@@ -3,7 +3,7 @@
 Provides web search capabilities using DuckDuckGo (local-first, no API key required).
 """
 
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
