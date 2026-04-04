@@ -7,7 +7,7 @@ Pydantic models for nested structures that need validation.
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Annotated
+from typing import Any, Annotated, Optional, Dict, List
 
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict

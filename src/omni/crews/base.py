@@ -5,7 +5,7 @@ This ensures consistency across all departments and enables dynamic discovery.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Type
+from typing import Any, Type, Dict, List, Optional
 
 from crewai import Agent, Crew
 from pydantic import BaseModel

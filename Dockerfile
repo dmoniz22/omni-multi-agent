@@ -5,6 +5,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Playwright browsers
@@ -25,7 +26,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
         httpx \
         beautifulsoup4 \
         lxml \
-        aiosqlite
+        aiosqlite \
+        psycopg[binary]
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1

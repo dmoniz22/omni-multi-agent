@@ -7,7 +7,7 @@ Provides auto-discovery from the crews directory and dynamic crew lookup.
 import importlib
 import inspect
 from pathlib import Path
-from typing import Any
+from typing import Any, Type, Optional, Dict, List
 
 from omni.core.logging import get_logger
 from omni.crews.base import BaseCrew
