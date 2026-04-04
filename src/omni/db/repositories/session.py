@@ -1,6 +1,7 @@
 """Session repository for database operations."""
 
 from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import select

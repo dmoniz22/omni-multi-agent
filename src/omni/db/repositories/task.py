@@ -1,6 +1,7 @@
 """Task and TaskStep repository for database operations."""
 
 from datetime import datetime, timezone
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
